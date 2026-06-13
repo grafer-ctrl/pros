@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GBP/USD — Strength Block</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0c0e;
+  --surface:#111214;
+  --panel:#181a1d;
+  --border:#222529;
+  --border2:#2c2f35;
+  --text:#d6dae3;
+  --muted:#525865;
+  --accent:#5b8dee;
+  --sell:#e05656;
+  --buy:#3dba7e;
+  --neut:#666c7a;
+  --font:'Consolas','JetBrains Mono','Courier New',monospace;
+}
+html,body{height:100%;overflow:hidden;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:12px;
+  display:flex;
+  flex-direction:column;
+}
+
+/* HEADER */
+header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:8px 14px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+  flex-shrink:0;
+  flex-wrap:wrap;
+}
+.logo{
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:var(--accent);
+}
+.logo em{color:var(--muted);font-style:normal;font-weight:400;font-size:11px;margin-left:4px;}
+.hgrp{display:flex;align-items:center;gap:6px;}
+.hlabel{color:var(--muted);font-size:10px;white-space:nowrap;}
+select{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:11px;
+  padding:3px 7px;
+  border-radius:3px;
+  outline:none;
+  cursor:pointer;
+}
+select:focus{border-color:var(--accent);}
+input[type=number]{
+  background:var(--panel);
+  border:1px solid var(--border2);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:11px;
+  padding:3px 6px;
+  border-radius:3px;
+  outline:none;
+  width:52px;
+}
+input[type=checkbox]{accent-color:var(--accent);cursor:pointer;}
+#loadBtn{
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  font-family:var(--font);
+  font-size:11px;
+  font-weight:700;
+  padding:4px 13px;
+  border-radius:3px;
+  cursor:pointer;
+  letter-spacing:.03em;
+  transition:opacity .15s;
+  white-space:nowrap;
+}
+#loadBtn:hover{opacity:.85;}
+#loadBtn:disabled{opacity:.35;cursor:not-allowed;}
+#statusBar{
+  margin-left:auto;
+  font-size:10px;
+  color:var(--muted);
+}
+
+/* MAIN AREA */
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+#priceWrap{
+  flex:1;
+  position:relative;
+  min-height:0;
+}
+#pCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;}
+
+#sbWrap{
+  height:110px;
+  flex-shrink:0;
+  position:relative;
+  border-top:1px solid var(--border);
+}
+#sCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+/* INFOBAR */
+#info{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+  padding:5px 14px;
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  font-size:10px;
+  color:var(--muted);
+  flex-shrink:0;
+}
+#info span{color:var(--text);}
+.sc{color:var(--sell)!important;}
+.bc{color:var(--buy)!important;}
+.nc{color:var(--neut)!important;}
+
+/* OVERLAY */
+#ov{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.7);
+  z-index:200;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+}
+#ov.on{display:flex;}
+.spin{
+  width:28px;height:28px;
+  border:2px solid var(--border2);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:sp .6s linear infinite;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+#ovMsg{font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GBP/USD <em>Strength Block</em></div>
+
+  <div class="hgrp">
+    <span class="hlabel">Timeframe</span>
+    <select id="tfSel">
+      <option value="M1">M1</option>
+      <option value="M5">M5</option>
+      <option value="M15" selected>M15</option>
+      <option value="M30">M30</option>
+      <option value="H1">H1</option>
+      <option value="H4">H4</option>
+      <option value="D1">D1</option>
+    </select>
+  </div>
+
+  <div class="hgrp">
+    <span class="hlabel">Block</span>
+    <select id="blkSel">
+      <option value="daily" selected>Harian</option>
+      <option value="weekly">Mingguan</option>
+      <option value="bars">Fixed Bars</option>
+    </select>
+  </div>
+
+  <div class="hgrp" id="barsWrap" style="display:none">
+    <span class="hlabel">Bars</span>
+    <input type="number" id="barsN" value="24" min="2" max="300">
+  </div>
+
+  <div class="hgrp">
+    <input type="checkbox" id="neutCk">
+    <span class="hlabel">Tampilkan Neutral</span>
+  </div>
+
+  <button id="loadBtn">▶ Load</button>
+  <div id="statusBar">Klik Load untuk memuat data</div>
+</header>
+
+<main>
+  <div id="priceWrap">
+    <canvas id="pCanvas"></canvas>
+  </div>
+  <div id="sbWrap">
+    <canvas id="sCanvas"></canvas>
+  </div>
+</main>
+
+<div id="info">
+  <div>GBP/USD</div>
+  <div>Candle: <span id="iTime">—</span></div>
+  <div>O <span id="iO">—</span></div>
+  <div>H <span id="iH">—</span></div>
+  <div>L <span id="iL">—</span></div>
+  <div>C <span id="iC">—</span></div>
+  <div>Sell: <span class="sc" id="iSell">—</span></div>
+  <div>Buy: <span class="bc" id="iBuy">—</span></div>
+  <div id="iNeutWrap" style="display:none">Neutral: <span class="nc" id="iNeut">—</span></div>
+  <div>Candles: <span id="iTotal">—</span></div>
+</div>
+
+<div id="ov"><div class="spin"></div><div id="ovMsg">Menghubungi AI…</div></div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────
+const ANTHROPIC_KEY = '8cd5e84fa4564322b907aaddac29b059';
+const SYMBOL = 'GBPUSD';
+const PAD = {t:18, r:62, b:24, l:8};
+
+// ─── State ────────────────────────────────────────────────────────────────
+let candles = []; // [{time,open,high,low,close}] oldest→newest
+let blocks  = []; // [{si,ei}]
+let viewStart = 0, viewCount = 80;
+let dragging = false, dragX0 = 0, dragVS0 = 0;
+let hoverI = -1;
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────
+const pCanvas = document.getElementById('pCanvas');
+const sCanvas = document.getElementById('sCanvas');
+const pCtx    = pCanvas.getContext('2d');
+const sCtx    = sCanvas.getContext('2d');
+const ov      = document.getElementById('ov');
+const ovMsg   = document.getElementById('ovMsg');
+const statusBar = document.getElementById('statusBar');
+
+const tfSel   = document.getElementById('tfSel');
+const blkSel  = document.getElementById('blkSel');
+const barsWrap= document.getElementById('barsWrap');
+const barsN   = document.getElementById('barsN');
+const neutCk  = document.getElementById('neutCk');
+const loadBtn = document.getElementById('loadBtn');
+
+blkSel.addEventListener('change', () => {
+  barsWrap.style.display = blkSel.value === 'bars' ? 'flex' : 'none';
+});
+
+// ─── AI Data Fetch ────────────────────────────────────────────────────────
+async function fetchOHLC(tf, count) {
+  // Build a realistic starting price for GBPUSD (~1.27xx area)
+  const prompt = `You are a financial data generator. Generate exactly ${count} realistic OHLC candlestick bars for GBP/USD (British Pound vs US Dollar) on the ${tf} timeframe.
+
+Rules:
+- Starting price: around 1.2680 (realistic 2024 GBPUSD range)
+- Price should move realistically: trends, pullbacks, ranging, volatility bursts
+- Each candle must have: open, high, low, close
+  - high >= max(open,close), low <= min(open,close)
+  - Typical spread/pip range per candle depends on TF:
+    M1: 5-20 pips, M5: 10-30 pips, M15: 15-50 pips, M30: 20-70 pips, H1: 30-100 pips, H4: 50-180 pips, D1: 80-250 pips
+  - 1 pip for GBPUSD = 0.0001
+- Times: consecutive, spaced by TF interval, starting from 2024-01-15 08:00 UTC
+- Include realistic market behaviour: gaps in weekly data if D1, skip weekends logically
+
+Return ONLY a raw JSON array. No markdown, no explanation, no code fences.
+Format: [{"t":1705305600000,"o":1.26820,"h":1.26950,"l":1.26780,"c":1.26900}, ...]
+Exactly ${count} elements.`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error('API ' + resp.status + ': ' + t.slice(0, 200));
+  }
+
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message);
+
+  const raw = data.content.map(b => b.type === 'text' ? b.text : '').join('').trim();
+  // Strip any accidental markdown fences
+  const clean = raw.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
+
+  let arr;
+  try {
+    arr = JSON.parse(clean);
+  } catch(e) {
+    // Try to extract JSON array
+    const m = clean.match(/\[[\s\S]*\]/);
+    if (!m) throw new Error('Tidak dapat parse JSON dari AI response');
+    arr = JSON.parse(m[0]);
+  }
+
+  // Normalize + validate
+  return arr.map((v, i) => {
+    const o = +v.o, h = +v.h, l = +v.l, c = +v.c;
+    const hi = Math.max(o, c, h);
+    const lo = Math.min(o, c, l);
+    return { time: +v.t || (1705305600000 + i * tfToMs(tf)), open: o, high: hi, low: lo, close: c };
+  }).filter(v => v.open > 0 && v.close > 0);
+}
+
+function tfToMs(tf) {
+  const m = { M1: 60000, M5: 300000, M15: 900000, M30: 1800000, H1: 3600000, H4: 14400000, D1: 86400000 };
+  return m[tf] || 900000;
+}
+
+// ─── Block Detection ──────────────────────────────────────────────────────
+function dayKey(ts) {
+  const d = new Date(ts);
+  return d.getUTCFullYear() * 10000 + d.getUTCMonth() * 100 + d.getUTCDate();
+}
+function weekKey(ts) {
+  const d = new Date(ts);
+  const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return d.getUTCFullYear() * 100 + Math.ceil(((d - jan1) / 86400000 + jan1.getUTCDay() + 1) / 7);
+}
+
+function buildBlocks(data, type, barsCount) {
+  const res = [];
+  if (!data.length) return res;
+  let start = 0;
+  for (let i = 1; i < data.length; i++) {
+    let newBlk = false;
+    if (type === 'daily')  newBlk = dayKey(data[i].time) !== dayKey(data[i-1].time);
+    else if (type === 'weekly') newBlk = weekKey(data[i].time) !== weekKey(data[i-1].time);
+    else if (type === 'bars')  newBlk = (i - start) >= barsCount;
+    if (newBlk) { res.push({ si: start, ei: i - 1 }); start = i; }
+  }
+  res.push({ si: start, ei: data.length - 1 });
+  return res;
+}
+
+// ─── Strength Calc ────────────────────────────────────────────────────────
+function calcStr(si, ei, showNeut) {
+  let buy = 0, sell = 0, neut = 0;
+  for (let i = si; i <= ei; i++) {
+    const { open: o, high: h, low: l, close: c } = candles[i];
+    const body = Math.abs(c - o);
+    if (showNeut) {
+      const uw = c > o ? h - c : h - o;
+      const lw = c > o ? o - l : c - l;
+      if (c > o) buy += body; else if (c < o) sell += body;
+      neut += uw + lw;
+    } else {
+      if (c > o) buy += c - o; else if (c < o) sell += o - c;
+    }
+  }
+  const tot = buy + sell + neut || 1;
+  return { buy: buy / tot * 100, sell: sell / tot * 100, neut: neut / tot * 100 };
+}
+
+// ─── Canvas helpers ───────────────────────────────────────────────────────
+const DR = () => window.devicePixelRatio || 1;
+
+function resize(cv) {
+  const r = cv.parentElement.getBoundingClientRect();
+  const d = DR();
+  cv.width  = r.width  * d;
+  cv.height = r.height * d;
+}
+
+function clamp() {
+  viewCount = Math.max(10, Math.min(candles.length, viewCount));
+  viewStart = Math.max(0, Math.min(candles.length - viewCount, viewStart));
+}
+
+// ─── Draw Price ───────────────────────────────────────────────────────────
+function drawPrice() {
+  resize(pCanvas);
+  const d = DR();
+  const W = pCanvas.width, H = pCanvas.height;
+  const pw = W - (PAD.l + PAD.r) * d;
+  const ph = H - (PAD.t + PAD.b) * d;
+  pCtx.clearRect(0, 0, W, H);
+
+  clamp();
+  const vis = candles.slice(viewStart, viewStart + viewCount);
+  if (!vis.length) return;
+
+  const hi  = Math.max(...vis.map(c => c.high));
+  const lo  = Math.min(...vis.map(c => c.low));
+  const rng = hi - lo || 0.0001;
+  const cw  = pw / vis.length;
+
+  const toY = v => PAD.t * d + ph * (1 - (v - lo) / rng);
+  const toX = i => PAD.l * d + i * cw + cw / 2;
+
+  // Grid H lines
+  pCtx.lineWidth = 1;
+  for (let g = 0; g <= 5; g++) {
+    const y   = PAD.t * d + ph * g / 5;
+    const val = hi - rng * g / 5;
+    pCtx.strokeStyle = '#1c1f24';
+    pCtx.beginPath(); pCtx.moveTo(PAD.l * d, y); pCtx.lineTo(W - PAD.r * d, y); pCtx.stroke();
+    pCtx.fillStyle = '#3a3f4a';
+    pCtx.font = `${10 * d}px Consolas,monospace`;
+    pCtx.textAlign = 'left';
+    pCtx.fillText(val.toFixed(5), W - PAD.r * d + 4, y + 4);
+  }
+
+  // Block separators
+  const blkSet = new Set();
+  for (const b of blocks) {
+    if (b.si > viewStart && b.si < viewStart + viewCount) blkSet.add(b.si - viewStart);
+  }
+  pCtx.setLineDash([3 * d, 4 * d]);
+  pCtx.strokeStyle = 'rgba(90,100,120,0.3)';
+  pCtx.lineWidth = 1;
+  for (const li of blkSet) {
+    const x = PAD.l * d + li * cw;
+    pCtx.beginPath(); pCtx.moveTo(x, PAD.t * d); pCtx.lineTo(x, H - PAD.b * d); pCtx.stroke();
+  }
+  pCtx.setLineDash([]);
+
+  // Candles
+  for (let i = 0; i < vis.length; i++) {
+    const c = vis[i];
+    const x = toX(i);
+    const bull = c.close >= c.open;
+    const col  = bull ? '#3dba7e' : '#e05656';
+    const bTop = toY(Math.max(c.open, c.close));
+    const bBot = toY(Math.min(c.open, c.close));
+    const bH   = Math.max(bBot - bTop, 1);
+    const bW   = Math.max(cw * 0.62, 1.5);
+
+    pCtx.strokeStyle = col; pCtx.lineWidth = Math.max(1, cw * 0.07);
+    pCtx.beginPath(); pCtx.moveTo(x, toY(c.high)); pCtx.lineTo(x, toY(c.low)); pCtx.stroke();
+    pCtx.fillStyle = bull ? '#3dba7e' : '#e05656';
+    pCtx.fillRect(x - bW / 2, bTop, bW, bH);
+
+    if (hoverI === viewStart + i) {
+      pCtx.strokeStyle = 'rgba(255,255,255,.2)';
+      pCtx.lineWidth = 1;
+      pCtx.strokeRect(x - bW / 2 - 1, bTop - 1, bW + 2, bH + 2);
+    }
+  }
+
+  // X labels
+  pCtx.fillStyle = '#3a3f4a';
+  pCtx.font = `${9 * d}px Consolas,monospace`;
+  pCtx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(vis.length / 7));
+  for (let i = 0; i < vis.length; i += step) {
+    const dt = new Date(vis[i].time);
+    const lbl = `${String(dt.getUTCMonth()+1).padStart(2,'0')}/${String(dt.getUTCDate()).padStart(2,'0')} ${String(dt.getUTCHours()).padStart(2,'0')}:${String(dt.getUTCMinutes()).padStart(2,'0')}`;
+    pCtx.fillText(lbl, toX(i), H - 6 * d);
+  }
+}
+
+// ─── Draw Strength ────────────────────────────────────────────────────────
+function drawStrength() {
+  resize(sCanvas);
+  const d  = DR();
+  const W  = sCanvas.width, H = sCanvas.height;
+  const pw = W - (PAD.l + PAD.r) * d;
+  sCtx.clearRect(0, 0, W, H);
+
+  clamp();
+  const vis = candles.slice(viewStart, viewStart + viewCount);
+  if (!vis.length || !blocks.length) return;
+  const cw = pw / vis.length;
+  const showN = neutCk.checked;
+
+  // Borders
+  sCtx.strokeStyle = '#222529'; sCtx.lineWidth = 1;
+  sCtx.beginPath(); sCtx.moveTo(PAD.l * d, 0.5); sCtx.lineTo(W - PAD.r * d, 0.5); sCtx.stroke();
+  sCtx.beginPath(); sCtx.moveTo(PAD.l * d, H - 0.5); sCtx.lineTo(W - PAD.r * d, H - 0.5); sCtx.stroke();
+
+  // Mid grid lines
+  sCtx.setLineDash([2 * d, 4 * d]);
+  sCtx.strokeStyle = '#1c1f24';
+  if (showN) {
+    [H / 3, H * 2 / 3].forEach(y => {
+      sCtx.beginPath(); sCtx.moveTo(PAD.l * d, y); sCtx.lineTo(W - PAD.r * d, y); sCtx.stroke();
+    });
+  } else {
+    sCtx.beginPath(); sCtx.moveTo(PAD.l * d, H / 2); sCtx.lineTo(W - PAD.r * d, H / 2); sCtx.stroke();
+  }
+  sCtx.setLineDash([]);
+
+  for (const b of blocks) {
+    const ve = viewStart + vis.length - 1;
+    if (b.ei < viewStart || b.si > ve) continue;
+    const li0 = Math.max(b.si - viewStart, 0);
+    const li1 = Math.min(b.ei - viewStart, vis.length - 1);
+    const x0  = PAD.l * d + li0 * cw;
+    const x1  = PAD.l * d + (li1 + 1) * cw;
+    const mx  = (x0 + x1) / 2;
+
+    // Sep line
+    sCtx.setLineDash([2 * d, 3 * d]);
+    sCtx.strokeStyle = 'rgba(80,90,110,0.35)';
+    sCtx.lineWidth = 1;
+    sCtx.beginPath(); sCtx.moveTo(x0, 0); sCtx.lineTo(x0, H); sCtx.stroke();
+    sCtx.setLineDash([]);
+
+    const { buy, sell, neut } = calcStr(b.si, b.ei, showN);
+    const fs = Math.min(11 * d, Math.max(8.5 * d, (x1 - x0) * 0.13));
+    sCtx.font = `bold ${fs}px Consolas,monospace`;
+    sCtx.textAlign = 'center';
+
+    if (showN) {
+      sCtx.fillStyle = '#e05656';
+      sCtx.fillText(`sell ${Math.round(sell)}%`, mx, H * 0.20);
+      sCtx.fillStyle = '#525865';
+      sCtx.fillText(`neutral ${Math.round(neut)}%`, mx, H * 0.52);
+      sCtx.fillStyle = '#3dba7e';
+      sCtx.fillText(`buy ${Math.round(buy)}%`, mx, H * 0.84);
+    } else {
+      sCtx.fillStyle = '#e05656';
+      sCtx.fillText(`sell ${Math.round(sell)}%`, mx, H * 0.30);
+      sCtx.fillStyle = '#3dba7e';
+      sCtx.fillText(`buy ${Math.round(buy)}%`, mx, H * 0.74);
+    }
+
+    // Update info bar for hovered block
+    if (hoverI >= b.si && hoverI <= b.ei) {
+      document.getElementById('iSell').textContent = Math.round(sell) + '%';
+      document.getElementById('iBuy').textContent  = Math.round(buy) + '%';
+      document.getElementById('iNeut').textContent = Math.round(neut) + '%';
+    }
+  }
+}
+
+function redraw() { drawPrice(); drawStrength(); }
+
+// ─── Load ─────────────────────────────────────────────────────────────────
+function showOv(msg) { ovMsg.textContent = msg; ov.classList.add('on'); }
+function hideOv() { ov.classList.remove('on'); }
+
+async function load() {
+  loadBtn.disabled = true;
+  showOv('Menghubungi Anthropic AI…');
+  statusBar.textContent = 'Memuat…';
+
+  try {
+    const tf  = tfSel.value;
+    const cnt = tf === 'D1' ? 120 : tf === 'H4' ? 200 : tf === 'H1' ? 300 : 400;
+
+    showOv(`Generating ${cnt} candles GBP/USD ${tf}…`);
+    candles = await fetchOHLC(tf, cnt);
+
+    if (!candles.length) throw new Error('Data kosong dari AI');
+
+    // Build blocks
+    const bt = blkSel.value, bc = parseInt(barsN.value) || 24;
+    blocks = buildBlocks(candles, bt, bc);
+
+    // Default view: last 80 candles
+    viewCount = Math.min(80, candles.length);
+    viewStart = candles.length - viewCount;
+
+    document.getElementById('iTotal').textContent = candles.length + ' candles · ' + blocks.length + ' blocks';
+    statusBar.textContent = `GBP/USD ${tf} · ${candles.length} candles · ${blocks.length} blocks`;
+    redraw();
+  } catch (e) {
+    statusBar.textContent = '⚠ ' + e.message;
+    console.error(e);
+  } finally {
+    hideOv();
+    loadBtn.disabled = false;
+  }
+}
+
+loadBtn.addEventListener('click', load);
+
+// ─── Interaction ──────────────────────────────────────────────────────────
+// Scroll = zoom
+window.addEventListener('wheel', e => {
+  if (!candles.length) return;
+  e.preventDefault();
+  const d = e.deltaY > 0 ? 6 : -6;
+  viewCount = Math.max(10, Math.min(candles.length, viewCount + d));
+  viewStart = Math.max(0, Math.min(candles.length - viewCount, viewStart));
+  redraw();
+}, { passive: false });
+
+// Drag = pan
+pCanvas.addEventListener('mousedown', e => {
+  dragging = true;
+  dragX0 = e.clientX;
+  dragVS0 = viewStart;
+});
+window.addEventListener('mousemove', e => {
+  if (!candles.length) return;
+  if (dragging) {
+    const d  = DR();
+    const pw = pCanvas.width - (PAD.l + PAD.r) * d;
+    const cw = pw / viewCount;
+    const dx = e.clientX - dragX0;
+    viewStart = Math.max(0, Math.min(candles.length - viewCount, dragVS0 - Math.round(dx * d / cw)));
+    redraw();
+    return;
+  }
+  // Hover
+  const rect = pCanvas.getBoundingClientRect();
+  const dpr  = DR();
+  const pw   = pCanvas.width - (PAD.l + PAD.r) * dpr;
+  const cw   = pw / viewCount;
+  const mx   = (e.clientX - rect.left) * dpr - PAD.l * dpr;
+  const ci   = Math.floor(mx / cw);
+  if (ci >= 0 && ci < viewCount) {
+    const ai = viewStart + ci;
+    if (ai !== hoverI) {
+      hoverI = ai;
+      const c = candles[ai];
+      if (c) {
+        const dt = new Date(c.time);
+        document.getElementById('iTime').textContent =
+          `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')} ${String(dt.getUTCHours()).padStart(2,'0')}:${String(dt.getUTCMinutes()).padStart(2,'0')}`;
+        document.getElementById('iO').textContent = c.open.toFixed(5);
+        document.getElementById('iH').textContent = c.high.toFixed(5);
+        document.getElementById('iL').textContent = c.low.toFixed(5);
+        document.getElementById('iC').textContent = c.close.toFixed(5);
+      }
+      redraw();
+    }
+  }
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+
+// Neutral toggle
+neutCk.addEventListener('change', () => {
+  document.getElementById('iNeutWrap').style.display = neutCk.checked ? 'block' : 'none';
+  if (candles.length) redraw();
+});
+
+// Resize
+const ro = new ResizeObserver(() => { if (candles.length) redraw(); });
+ro.observe(document.getElementById('priceWrap'));
+ro.observe(document.getElementById('sbWrap'));
+</script>
+</body>
+</html>
