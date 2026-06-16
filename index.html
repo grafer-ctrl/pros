@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Forex Signal Analyzer Pro - Candlestick & Histogram</title>
+    <title>Forex Signal Analyzer Pro - Fixed</title>
     <!-- Tailwind CSS & FontAwesome Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- TradingView Lightweight Charts standalone library -->
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Menggunakan CDN jsDelivr yang lebih stabil untuk Mobile Webview -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     
     <script>
         tailwind.config = {
@@ -41,8 +41,13 @@
 </head>
 <body class="bg-darkBg text-slate-100 font-sans min-h-screen pb-12">
 
+    <!-- Error Banner (Tersembunyi secara default, akan muncul jika ada masalah data/API) -->
+    <div id="errorBanner" class="bg-bearRed/90 text-white text-xs text-center py-2 px-4 hidden sticky top-0 z-50 backdrop-blur-sm">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="errorMsg">Terjadi kesalahan pemrosesan data.</span>
+    </div>
+
     <!-- Header -->
-    <header class="bg-cardBg/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+    <header class="bg-cardBg/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-2">
             <div class="bg-gradient-to-tr from-accentBlue to-indigo-500 p-2 rounded-xl text-white shadow-lg shadow-accentBlue/20">
                 <i class="fa-solid fa-chart-area text-lg"></i>
@@ -54,7 +59,7 @@
         </div>
         <div class="flex items-center gap-2">
             <span id="apiStatus" class="flex items-center gap-1.5 text-xs bg-slate-800 px-2.5 py-1 rounded-full text-slate-300">
-                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Ready
+                <span id="statusIndicator" class="h-2 w-2 rounded-full bg-emerald-500"></span> <span id="statusText">Ready</span>
             </span>
         </div>
     </header>
@@ -159,7 +164,7 @@
                 <span class="text-slate-400">Nilai VBox (Lookback 14):</span>
                 <div class="flex items-center gap-2">
                     <span id="vboxValueLabel" class="font-mono font-bold">-</span>
-                    <span id="vboxStatusLabel" class="text-[9px] font-bold px-2 py-0.5 rounded">-</span>
+                    <span id="vboxStatusLabel" class="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">-</span>
                 </div>
             </div>
 
@@ -199,8 +204,51 @@
         let mainChart, vboxChart;
         let candleSeries, upperBandSeries, lowerBandSeries, fastEmaSeries, slowEmaSeries, vboxHistogramSeries;
 
+        // FUNGSI PERBAIKAN: Parser tanggal manual tahan-error untuk semua peramban seluler (iOS/Android)
+        function parseDateTimeToUnix(datetimeStr) {
+            try {
+                // Format input: "YYYY-MM-DD HH:MM:SS" (cth: "2026-06-16 20:00:00")
+                const parts = datetimeStr.split(' ');
+                const dateParts = parts[0].split('-');
+                const timeParts = parts[1].split(':');
+                
+                const year = parseInt(dateParts[0], 10);
+                const month = parseInt(dateParts[1], 10) - 1;
+                const day = parseInt(dateParts[2], 10);
+                const hour = parseInt(timeParts[0], 10);
+                const minute = parseInt(timeParts[1], 10);
+                const second = parseInt(timeParts[2], 10);
+                
+                // Membuat objek waktu lokal yang aman secara eksplisit
+                const localDate = new Date(year, month, day, hour, minute, second);
+                const unixSecs = Math.floor(localDate.getTime() / 1000);
+                
+                return isNaN(unixSecs) ? null : unixSecs;
+            } catch (e) {
+                console.error("Error parsing date: ", datetimeStr, e);
+                return null;
+            }
+        }
+
+        // Tampilkan Banner Error jika koneksi/API bermasalah
+        function showError(msg) {
+            const banner = document.getElementById('errorBanner');
+            const msgEl = document.getElementById('errorMsg');
+            if (msg) {
+                msgEl.innerText = msg;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
         // Inisialisasi visual canvas chart
         function initCharts() {
+            if (typeof LightweightCharts === 'undefined') {
+                showError("Gagal memuat visual grafik. Periksa koneksi internet.");
+                return;
+            }
+
             const mainContainer = document.getElementById('mainChart');
             const vboxContainer = document.getElementById('vboxChart');
 
@@ -318,16 +366,19 @@
 
         function updateUIState(loading) {
             const refreshIcon = document.getElementById('refreshIcon');
-            const apiStatus = document.getElementById('apiStatus');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
             const chartLoader = document.getElementById('chartLoader');
 
             if (loading) {
                 refreshIcon.classList.add('animate-spin');
-                apiStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span> Fetching...`;
+                statusIndicator.className = "h-2 w-2 rounded-full bg-amber-500 animate-pulse";
+                statusText.innerText = "Fetching...";
                 chartLoader.classList.remove('opacity-0', 'pointer-events-none');
             } else {
                 refreshIcon.classList.remove('animate-spin');
-                apiStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-emerald-500"></span> Ready`;
+                statusIndicator.className = "h-2 w-2 rounded-full bg-emerald-500";
+                statusText.innerText = "Ready";
                 chartLoader.classList.add('opacity-0', 'pointer-events-none');
             }
         }
@@ -348,6 +399,7 @@
 
         async function fetchData(force = false) {
             updateUIState(true);
+            showError(null);
             const now = Date.now();
             
             if (!force && cacheStore[currentAsset].data && (now - cacheStore[currentAsset].timestamp < CACHE_DURATION)) {
@@ -357,13 +409,13 @@
             }
 
             try {
-                // Fetch 120 H1 candle agar kalkulasi Moving Average 50 optimal
-                const url = `https://api.twelvedata.com/time_series?symbol=${currentAsset}&interval=1h&outputsize=120&apikey=${API_KEY}`;
+                // Menggunakan outputsize=150 untuk memastikan data historis cukup untuk perhitungan LWMA 50
+                const url = `https://api.twelvedata.com/time_series?symbol=${currentAsset}&interval=1h&outputsize=150&apikey=${API_KEY}`;
                 const response = await fetch(url);
                 const result = await response.json();
 
                 if (result.status === 'error') {
-                    alert('Error Twelve Data: ' + result.message);
+                    showError('Error API: ' + result.message);
                     updateUIState(false);
                     return;
                 }
@@ -373,10 +425,9 @@
                     const processedData = [];
                     const reversedValues = [...result.values].reverse();
 
-                    // Urutkan & hilangkan duplikasi timestamp agar tidak terjadi crash pada Lightweight Charts
                     for (const item of reversedValues) {
-                        const timeInSecs = Math.floor(Date.parse(item.datetime) / 1000);
-                        if (isNaN(timeInSecs) || seenTimes.has(timeInSecs)) continue;
+                        const timeInSecs = parseDateTimeToUnix(item.datetime);
+                        if (!timeInSecs || seenTimes.has(timeInSecs)) continue;
                         seenTimes.add(timeInSecs);
 
                         processedData.push({
@@ -389,13 +440,21 @@
                         });
                     }
 
+                    if (processedData.length < 50) {
+                        showError("Data dari API terlalu sedikit untuk analisis indicator (Minimal 50).");
+                        updateUIState(false);
+                        return;
+                    }
+
                     cacheStore[currentAsset].data = processedData;
                     cacheStore[currentAsset].timestamp = now;
                     processAndDisplay(processedData);
+                } else {
+                    showError("API mengembalikan data kosong. Coba muat ulang.");
                 }
             } catch (error) {
-                console.error("Gagal terhubung dengan API:", error);
-                alert("Koneksi gagal. Silakan coba beberapa saat lagi.");
+                console.error("Gagal memproses data:", error);
+                showError("Gagal terhubung dengan server API. Periksa jaringan Anda.");
             }
             updateUIState(false);
         }
@@ -497,206 +556,211 @@
         // ================= DISPLAY & ANALYSIS INTERFACES =================
 
         function processAndDisplay(data) {
-            const n = data.length;
-            const latestBar = data[n - 1];
-            
-            // Perbarui visual harga
-            document.getElementById('currentPrice').innerText = latestBar.close.toFixed(5);
-            const priceDirectionIcon = document.getElementById('priceDirectionIcon');
-            priceDirectionIcon.innerHTML = latestBar.close >= latestBar.open ? 
-                `<i class="fa-solid fa-caret-up text-bullGreen"></i>` : 
-                `<i class="fa-solid fa-caret-down text-bearRed"></i>`;
+            try {
+                const n = data.length;
+                const latestBar = data[n - 1];
+                
+                // Perbarui visual harga
+                document.getElementById('currentPrice').innerText = latestBar.close.toFixed(5);
+                const priceDirectionIcon = document.getElementById('priceDirectionIcon');
+                priceDirectionIcon.innerHTML = latestBar.close >= latestBar.open ? 
+                    `<i class="fa-solid fa-caret-up text-bullGreen"></i>` : 
+                    `<i class="fa-solid fa-caret-down text-bearRed"></i>`;
 
-            // 1. SBC Strength
-            const strength = calcSBCStrength(data);
-            document.getElementById('sbcBuyPct').innerText = strength.buy;
-            document.getElementById('sbcSellPct').innerText = strength.sell;
-            document.getElementById('sbcBuyBar').style.width = `${strength.buy}%`;
-            document.getElementById('sbcSellBar').style.width = `${strength.sell}%`;
+                // 1. SBC Strength
+                const strength = calcSBCStrength(data);
+                document.getElementById('sbcBuyPct').innerText = strength.buy;
+                document.getElementById('sbcSellPct').innerText = strength.sell;
+                document.getElementById('sbcBuyBar').style.width = `${strength.buy}%`;
+                document.getElementById('sbcSellBar').style.width = `${strength.sell}%`;
 
-            // 2. VBox Histogram Values
-            const vboxArr = calcVBox(data);
-            const latestVBoxVal = vboxArr[n - 1];
-            document.getElementById('vboxValueLabel').innerText = latestVBoxVal.toFixed(2);
-            
-            const vboxStatusLabel = document.getElementById('vboxStatusLabel');
-            if (latestVBoxVal < 15) {
-                vboxStatusLabel.innerText = "OVERSOLD";
-                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-bullGreen";
-            } else if (latestVBoxVal > 85) {
-                vboxStatusLabel.innerText = "OVERBOUGHT";
-                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-rose-950 text-bearRed";
-            } else {
-                vboxStatusLabel.innerText = "NORMAL";
-                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400";
-            }
+                // 2. VBox Histogram Values
+                const vboxArr = calcVBox(data);
+                const latestVBoxVal = vboxArr[n - 1];
+                document.getElementById('vboxValueLabel').innerText = latestVBoxVal.toFixed(2);
+                
+                const vboxStatusLabel = document.getElementById('vboxStatusLabel');
+                if (latestVBoxVal < 15) {
+                    vboxStatusLabel.innerText = "OVERSOLD";
+                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-bullGreen border border-emerald-850/40";
+                } else if (latestVBoxVal > 85) {
+                    vboxStatusLabel.innerText = "OVERBOUGHT";
+                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-rose-950 text-bearRed border border-rose-850/40";
+                } else {
+                    vboxStatusLabel.innerText = "NORMAL";
+                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/40";
+                }
 
-            // 3. EMA Ribbon & LWMA Channels
-            const ema12 = calcEMA(data, 12);
-            const ema26 = calcEMA(data, 26);
-            const lwma50 = calcLWMA(data, 50);
-            const atr14 = calcATR(data, 14);
+                // 3. EMA Ribbon & LWMA Channels
+                const ema12 = calcEMA(data, 12);
+                const ema26 = calcEMA(data, 26);
+                const lwma50 = calcLWMA(data, 50);
+                const atr14 = calcATR(data, 14);
 
-            const isBullishRibbon = ema12[n - 1] > ema26[n - 1];
-            const ribbonEl = document.getElementById('ribbonStatus');
-            if (isBullishRibbon) {
-                ribbonEl.innerText = "BULLISH";
-                ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-bullGreen border border-emerald-850";
-            } else {
-                ribbonEl.innerText = "BEARISH";
-                ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-bearRed border border-rose-850";
-            }
+                const isBullishRibbon = ema12[n - 1] > ema26[n - 1];
+                const ribbonEl = document.getElementById('ribbonStatus');
+                if (isBullishRibbon) {
+                    ribbonEl.innerText = "BULLISH";
+                    ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-bullGreen border border-emerald-850";
+                } else {
+                    ribbonEl.innerText = "BEARISH";
+                    ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-bearRed border border-rose-850";
+                }
 
-            const currentLWMA = lwma50[n - 1];
-            const currentATR = atr14[n - 1];
-            const upperBand = currentLWMA + (currentATR * 2.5);
-            const lowerBand = currentLWMA - (currentATR * 2.5);
-            document.getElementById('upperBandVal').innerText = upperBand.toFixed(5);
-            document.getElementById('lowerBandVal').innerText = lowerBand.toFixed(5);
+                const currentLWMA = lwma50[n - 1];
+                const currentATR = atr14[n - 1];
+                const upperBand = currentLWMA + (currentATR * 2.5);
+                const lowerBand = currentLWMA - (currentATR * 2.5);
+                document.getElementById('upperBandVal').innerText = upperBand.toFixed(5);
+                document.getElementById('lowerBandVal').innerText = lowerBand.toFixed(5);
 
-            // ================= POPULATE CHART DATA =================
-            const candles = [];
-            const upperBandPoints = [];
-            const lowerBandPoints = [];
-            const fastEmaPoints = [];
-            const slowEmaPoints = [];
-            const vboxHistogramPoints = [];
-            const mainChartMarkers = [];
+                // ================= POPULATE CHART DATA =================
+                const candles = [];
+                const upperBandPoints = [];
+                const lowerBandPoints = [];
+                const fastEmaPoints = [];
+                const slowEmaPoints = [];
+                const vboxHistogramPoints = [];
+                const mainChartMarkers = [];
 
-            const pipSize = 0.0001;
+                const pipSize = 0.0001;
 
-            for (let i = 0; i < n; i++) {
-                const item = data[i];
-                const time = item.time;
+                for (let i = 0; i < n; i++) {
+                    const item = data[i];
+                    const time = item.time; // UNIX Timestamp terjamin aman
 
-                candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close });
+                    candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close });
 
-                if (i >= 49) {
-                    const centerMA = lwma50[i];
-                    const atr = atr14[i];
-                    const uBand = centerMA + (atr * 2.5);
-                    const lBand = centerMA - (atr * 2.5);
+                    if (i >= 49) {
+                        const centerMA = lwma50[i];
+                        const atr = atr14[i];
+                        const uBand = centerMA + (atr * 2.5);
+                        const lBand = centerMA - (atr * 2.5);
 
-                    upperBandPoints.push({ time, value: uBand });
-                    lowerBandPoints.push({ time, value: lBand });
+                        upperBandPoints.push({ time, value: uBand });
+                        lowerBandPoints.push({ time, value: lBand });
 
-                    // Logika Swing High/Low untuk Penempatan Sinyal Gear pada Chart (Non-Repaint)
-                    if (i < n - 1) {
-                        const lowCur = item.low;
-                        const lowPrev = data[i - 1].low;
-                        const lowNext = data[i + 1].low;
-                        
-                        const highCur = item.high;
-                        const highPrev = data[i - 1].high;
-                        const highNext = data[i + 1].high;
+                        // Logika Swing High/Low untuk Penempatan Sinyal Gear pada Chart (Non-Repaint)
+                        if (i < n - 1) {
+                            const lowCur = item.low;
+                            const lowPrev = data[i - 1].low;
+                            const lowNext = data[i + 1].low;
+                            
+                            const highCur = item.high;
+                            const highPrev = data[i - 1].high;
+                            const highNext = data[i + 1].high;
 
-                        if (lowCur < lowPrev && lowCur < lowNext) {
-                            if (lowCur <= lBand + (5 * pipSize)) {
-                                mainChartMarkers.push({
-                                    time,
-                                    position: 'belowBar',
-                                    color: '#10b981',
-                                    shape: 'arrowUp',
-                                    text: 'GEAR BUY',
-                                });
+                            if (lowCur < lowPrev && lowCur < lowNext) {
+                                if (lowCur <= lBand + (5 * pipSize)) {
+                                    mainChartMarkers.push({
+                                        time,
+                                        position: 'belowBar',
+                                        color: '#10b981',
+                                        shape: 'arrowUp',
+                                        text: 'GEAR BUY',
+                                    });
+                                }
                             }
-                        }
 
-                        if (highCur > highPrev && highCur > highNext) {
-                            if (highCur >= uBand - (5 * pipSize)) {
-                                mainChartMarkers.push({
-                                    time,
-                                    position: 'aboveBar',
-                                    color: '#ef4444',
-                                    shape: 'arrowDown',
-                                    text: 'GEAR SELL',
-                                });
+                            if (highCur > highPrev && highCur > highNext) {
+                                if (highCur >= uBand - (5 * pipSize)) {
+                                    mainChartMarkers.push({
+                                        time,
+                                        position: 'aboveBar',
+                                        color: '#ef4444',
+                                        shape: 'arrowDown',
+                                        text: 'GEAR SELL',
+                                    });
+                                }
                             }
                         }
                     }
+
+                    if (i >= 11) fastEmaPoints.push({ time, value: ema12[i] });
+                    if (i >= 25) slowEmaPoints.push({ time, value: ema26[i] });
+
+                    // VBox Histogram Data Points
+                    if (i >= 15) {
+                        const isBull = item.close >= item.open;
+                        vboxHistogramPoints.push({
+                            time,
+                            value: vboxArr[i],
+                            color: isBull ? '#1e90ff' : '#ff1493' // Biru untuk Bullish, Pink untuk Bearish
+                        });
+                    }
                 }
 
-                if (i >= 11) fastEmaPoints.push({ time, value: ema12[i] });
-                if (i >= 25) slowEmaPoints.push({ time, value: ema26[i] });
+                // Pengisian Data ke Seri Charts
+                if (candleSeries) candleSeries.setData(candles);
+                if (upperBandSeries) upperBandSeries.setData(upperBandPoints);
+                if (lowerBandSeries) lowerBandSeries.setData(lowerBandPoints);
+                if (fastEmaSeries) fastEmaSeries.setData(fastEmaPoints);
+                if (slowEmaSeries) slowEmaSeries.setData(slowEmaPoints);
+                if (vboxHistogramSeries) vboxHistogramSeries.setData(vboxHistogramPoints);
 
-                // VBox Histogram Data Points
-                if (i >= 15) {
-                    const isBull = item.close >= item.open;
-                    vboxHistogramPoints.push({
-                        time,
-                        value: vboxArr[i],
-                        color: isBull ? '#1e90ff' : '#ff1493' // Biru untuk Bullish, Pink untuk Bearish (sesuai gambar)
-                    });
+                // Set penanda (markers) sinyal Gear
+                if (candleSeries) candleSeries.setMarkers(mainChartMarkers);
+
+                // ================= VERDICT DECISION ALGORITHM =================
+                let score = 50; 
+                if (isBullishRibbon) score += 15; else score -= 15;
+                if (strength.buy > 55) score += 15; if (strength.sell > 55) score -= 15;
+                if (latestVBoxVal < 20) score += 20; if (latestVBoxVal > 80) score -= 20;
+
+                // Cek sinyal gear aktif terakhir
+                const lastMarker = mainChartMarkers[mainChartMarkers.length - 1];
+                if (lastMarker) {
+                    if (lastMarker.shape === 'arrowUp') score += 20;
+                    else if (lastMarker.shape === 'arrowDown') score -= 20;
                 }
-            }
 
-            // Memasukkan array data ke masing-masing series chart
-            candleSeries.setData(candles);
-            upperBandSeries.setData(upperBandPoints);
-            lowerBandSeries.setData(lowerBandPoints);
-            fastEmaSeries.setData(fastEmaPoints);
-            slowEmaSeries.setData(slowEmaPoints);
-            vboxHistogramSeries.setData(vboxHistogramPoints);
+                score = Math.max(5, Math.min(95, score));
 
-            // Terapkan penanda (markers) sinyal pada chart candlestick
-            candleSeries.setMarkers(mainChartMarkers);
+                const verdictText = document.getElementById('signalVerdict');
+                const verdictBar = document.getElementById('verdictBar');
+                const glowBg = document.getElementById('glowBg');
+                const signalMainCard = document.getElementById('signalMainCard');
 
-            // ================= VERDICT DECISION ALGORITHM =================
-            let score = 50; 
-            if (isBullishRibbon) score += 15; else score -= 15;
-            if (strength.buy > 55) score += 15; if (strength.sell > 55) score -= 15;
-            if (latestVBoxVal < 20) score += 20; if (latestVBoxVal > 80) score -= 20;
+                verdictBar.style.width = `${score}%`;
 
-            // Periksa keberadaan sinyal gear aktif terakhir
-            const lastMarker = mainChartMarkers[mainChartMarkers.length - 1];
-            if (lastMarker) {
-                if (lastMarker.shape === 'arrowUp') score += 20;
-                else if (lastMarker.shape === 'arrowDown') score -= 20;
-            }
-
-            score = Math.max(5, Math.min(95, score));
-
-            const verdictText = document.getElementById('signalVerdict');
-            const verdictBar = document.getElementById('verdictBar');
-            const glowBg = document.getElementById('glowBg');
-            const signalMainCard = document.getElementById('signalMainCard');
-
-            verdictBar.style.width = `${score}%`;
-
-            if (score >= 70) {
-                verdictText.innerText = "STRONG BUY";
-                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bullGreen";
-                verdictBar.className = "h-full bg-bullGreen transition-all duration-500";
-                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-emerald-500 transition-all duration-500";
-                signalMainCard.className = "bg-cardBg rounded-2xl border border-emerald-900/40 p-5 shadow-xl relative overflow-hidden";
-            } else if (score > 55 && score < 70) {
-                verdictText.innerText = "BUY";
-                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-emerald-400";
-                verdictBar.className = "h-full bg-emerald-400 transition-all duration-500";
-                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-emerald-400 transition-all duration-500";
-                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
-            } else if (score < 30) {
-                verdictText.innerText = "STRONG SELL";
-                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bearRed";
-                verdictBar.className = "h-full bg-bearRed transition-all duration-500";
-                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-rose-500 transition-all duration-500";
-                signalMainCard.className = "bg-cardBg rounded-2xl border border-rose-900/40 p-5 shadow-xl relative overflow-hidden";
-            } else if (score >= 30 && score < 45) {
-                verdictText.innerText = "SELL";
-                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-rose-400";
-                verdictBar.className = "h-full bg-rose-400 transition-all duration-500";
-                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-rose-400 transition-all duration-500";
-                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
-            } else {
-                verdictText.innerText = "NEUTRAL";
-                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-slate-400";
-                verdictBar.className = "h-full bg-slate-600 transition-all duration-500";
-                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-0 transition-all duration-500";
-                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+                if (score >= 70) {
+                    verdictText.innerText = "STRONG BUY";
+                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bullGreen";
+                    verdictBar.className = "h-full bg-bullGreen transition-all duration-500";
+                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-emerald-500 transition-all duration-500";
+                    signalMainCard.className = "bg-cardBg rounded-2xl border border-emerald-900/40 p-5 shadow-xl relative overflow-hidden";
+                } else if (score > 55 && score < 70) {
+                    verdictText.innerText = "BUY";
+                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-emerald-400";
+                    verdictBar.className = "h-full bg-emerald-400 transition-all duration-500";
+                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-emerald-400 transition-all duration-500";
+                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+                } else if (score < 30) {
+                    verdictText.innerText = "STRONG SELL";
+                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bearRed";
+                    verdictBar.className = "h-full bg-bearRed transition-all duration-500";
+                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-rose-500 transition-all duration-500";
+                    signalMainCard.className = "bg-cardBg rounded-2xl border border-rose-900/40 p-5 shadow-xl relative overflow-hidden";
+                } else if (score >= 30 && score < 45) {
+                    verdictText.innerText = "SELL";
+                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-rose-400";
+                    verdictBar.className = "h-full bg-rose-400 transition-all duration-500";
+                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-rose-400 transition-all duration-500";
+                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+                } else {
+                    verdictText.innerText = "NEUTRAL";
+                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-slate-400";
+                    verdictBar.className = "h-full bg-slate-600 transition-all duration-500";
+                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-0 transition-all duration-500";
+                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+                }
+            } catch (err) {
+                console.error("Terjadi crash pemrosesan grafik: ", err);
+                showError("Gagal menggambar grafik. Muat ulang halaman.");
             }
         }
 
-        // Penanganan penyesuaian ukuran otomatis saat orientasi/layar HP berubah
+        // Penanganan penyesuaian ukuran otomatis saat orientasi layar berubah
         window.addEventListener('resize', () => {
             if (mainChart && vboxChart) {
                 const containerWidth = document.getElementById('mainChart').clientWidth;
