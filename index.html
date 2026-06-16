@@ -1,657 +1,720 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GBP/USD — Strength Block</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0b0c0e;
-  --surface:#111214;
-  --panel:#181a1d;
-  --border:#222529;
-  --border2:#2c2f35;
-  --text:#d6dae3;
-  --muted:#525865;
-  --accent:#5b8dee;
-  --sell:#e05656;
-  --buy:#3dba7e;
-  --neut:#666c7a;
-  --font:'Consolas','JetBrains Mono','Courier New',monospace;
-}
-html,body{height:100%;overflow:hidden;}
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:var(--font);
-  font-size:12px;
-  display:flex;
-  flex-direction:column;
-}
-
-/* HEADER */
-header{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:8px 14px;
-  border-bottom:1px solid var(--border);
-  background:var(--surface);
-  flex-shrink:0;
-  flex-wrap:wrap;
-}
-.logo{
-  font-size:15px;
-  font-weight:700;
-  letter-spacing:.04em;
-  color:var(--accent);
-}
-.logo em{color:var(--muted);font-style:normal;font-weight:400;font-size:11px;margin-left:4px;}
-.hgrp{display:flex;align-items:center;gap:6px;}
-.hlabel{color:var(--muted);font-size:10px;white-space:nowrap;}
-select{
-  background:var(--panel);
-  border:1px solid var(--border2);
-  color:var(--text);
-  font-family:var(--font);
-  font-size:11px;
-  padding:3px 7px;
-  border-radius:3px;
-  outline:none;
-  cursor:pointer;
-}
-select:focus{border-color:var(--accent);}
-input[type=number]{
-  background:var(--panel);
-  border:1px solid var(--border2);
-  color:var(--text);
-  font-family:var(--font);
-  font-size:11px;
-  padding:3px 6px;
-  border-radius:3px;
-  outline:none;
-  width:52px;
-}
-input[type=checkbox]{accent-color:var(--accent);cursor:pointer;}
-#loadBtn{
-  background:var(--accent);
-  color:#fff;
-  border:none;
-  font-family:var(--font);
-  font-size:11px;
-  font-weight:700;
-  padding:4px 13px;
-  border-radius:3px;
-  cursor:pointer;
-  letter-spacing:.03em;
-  transition:opacity .15s;
-  white-space:nowrap;
-}
-#loadBtn:hover{opacity:.85;}
-#loadBtn:disabled{opacity:.35;cursor:not-allowed;}
-#statusBar{
-  margin-left:auto;
-  font-size:10px;
-  color:var(--muted);
-}
-
-/* MAIN AREA */
-main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  min-height:0;
-}
-#priceWrap{
-  flex:1;
-  position:relative;
-  min-height:0;
-}
-#pCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;}
-
-#sbWrap{
-  height:110px;
-  flex-shrink:0;
-  position:relative;
-  border-top:1px solid var(--border);
-}
-#sCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
-
-/* INFOBAR */
-#info{
-  display:flex;
-  gap:18px;
-  flex-wrap:wrap;
-  padding:5px 14px;
-  border-top:1px solid var(--border);
-  background:var(--surface);
-  font-size:10px;
-  color:var(--muted);
-  flex-shrink:0;
-}
-#info span{color:var(--text);}
-.sc{color:var(--sell)!important;}
-.bc{color:var(--buy)!important;}
-.nc{color:var(--neut)!important;}
-
-/* OVERLAY */
-#ov{
-  display:none;
-  position:fixed;inset:0;
-  background:rgba(0,0,0,.7);
-  z-index:200;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:14px;
-}
-#ov.on{display:flex;}
-.spin{
-  width:28px;height:28px;
-  border:2px solid var(--border2);
-  border-top-color:var(--accent);
-  border-radius:50%;
-  animation:sp .6s linear infinite;
-}
-@keyframes sp{to{transform:rotate(360deg)}}
-#ovMsg{font-size:11px;color:var(--muted);}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Forex Signal Analyzer Pro - Candlestick & Histogram</title>
+    <!-- Tailwind CSS & FontAwesome Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- TradingView Lightweight Charts standalone library -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090d16',
+                        cardBg: '#121824',
+                        accentBlue: '#3b82f6',
+                        bullGreen: '#10b981',
+                        bearRed: '#ef4444',
+                        neutralGray: '#64748b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-darkBg text-slate-100 font-sans min-h-screen pb-12">
 
-<header>
-  <div class="logo">GBP/USD <em>Strength Block</em></div>
+    <!-- Header -->
+    <header class="bg-cardBg/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="bg-gradient-to-tr from-accentBlue to-indigo-500 p-2 rounded-xl text-white shadow-lg shadow-accentBlue/20">
+                <i class="fa-solid fa-chart-area text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold tracking-tight">Signal Analyzer</h1>
+                <span class="text-[10px] text-slate-400 font-mono">LIVE CHART & HISTOGRAM</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span id="apiStatus" class="flex items-center gap-1.5 text-xs bg-slate-800 px-2.5 py-1 rounded-full text-slate-300">
+                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Ready
+            </span>
+        </div>
+    </header>
 
-  <div class="hgrp">
-    <span class="hlabel">Timeframe</span>
-    <select id="tfSel">
-      <option value="M1">M1</option>
-      <option value="M5">M5</option>
-      <option value="M15" selected>M15</option>
-      <option value="M30">M30</option>
-      <option value="H1">H1</option>
-      <option value="H4">H4</option>
-      <option value="D1">D1</option>
-    </select>
-  </div>
+    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
 
-  <div class="hgrp">
-    <span class="hlabel">Block</span>
-    <select id="blkSel">
-      <option value="daily" selected>Harian</option>
-      <option value="weekly">Mingguan</option>
-      <option value="bars">Fixed Bars</option>
-    </select>
-  </div>
+        <!-- Asset Selector Tabs -->
+        <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
+            <button onclick="switchAsset('GBP/USD')" id="btn-GBPUSD" class="tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 bg-accentBlue text-white shadow-md">
+                GBP/USD
+            </button>
+            <button onclick="switchAsset('EUR/USD')" id="btn-EURUSD" class="tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 text-slate-400 hover:text-slate-200">
+                EUR/USD
+            </button>
+        </div>
 
-  <div class="hgrp" id="barsWrap" style="display:none">
-    <span class="hlabel">Bars</span>
-    <input type="number" id="barsN" value="24" min="2" max="300">
-  </div>
+        <!-- Main Signal Card -->
+        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden" id="signalMainCard">
+            <div id="glowBg" class="absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 transition-all duration-500"></div>
 
-  <div class="hgrp">
-    <input type="checkbox" id="neutCk">
-    <span class="hlabel">Tampilkan Neutral</span>
-  </div>
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-xs text-slate-400 uppercase tracking-widest font-semibold" id="assetLabel">GBP/USD</span>
+                    <div class="flex items-baseline gap-2 mt-0.5">
+                        <span id="currentPrice" class="text-3xl font-extrabold font-mono tracking-tight">-</span>
+                        <span id="priceDirectionIcon" class="text-lg"></span>
+                    </div>
+                </div>
+                <button onclick="fetchData(true)" class="p-2.5 bg-slate-800/60 hover:bg-slate-800 rounded-xl transition border border-slate-700/50">
+                    <i id="refreshIcon" class="fa-solid fa-arrows-rotate text-slate-300"></i>
+                </button>
+            </div>
 
-  <button id="loadBtn">▶ Load</button>
-  <div id="statusBar">Klik Load untuk memuat data</div>
-</header>
+            <!-- Signal Recommendation -->
+            <div class="mt-6 flex flex-col items-center justify-center py-4 bg-slate-950/40 rounded-xl border border-slate-800/50">
+                <span class="text-xs text-slate-400 font-medium">REKOMENDASI ANALISIS</span>
+                <span id="signalVerdict" class="text-2xl font-black mt-1 tracking-wider text-slate-400">-</span>
+                <div class="w-full px-6 mt-4">
+                    <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                        <div id="verdictBar" class="h-full bg-slate-600 transition-all duration-500" style="width: 50%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<main>
-  <div id="priceWrap">
-    <canvas id="pCanvas"></canvas>
-  </div>
-  <div id="sbWrap">
-    <canvas id="sCanvas"></canvas>
-  </div>
-</main>
+        <!-- INTEGRATED CHART VIEW (CANDLESTICK + HISTOGRAM SUB-WINDOW) -->
+        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-3 shadow-lg space-y-1 overflow-hidden">
+            <div class="flex items-center justify-between px-1 mb-2">
+                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase">
+                    <i class="fa-solid fa-chart-line text-accentBlue"></i>
+                    <span>Tampilan Grafik H1</span>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono">Gunakan 2 jari untuk zoom/geser</span>
+            </div>
+            
+            <!-- Chart Container -->
+            <div class="bg-slate-950 rounded-xl border border-slate-900 p-1 space-y-1 relative">
+                <!-- Main Candlestick Chart Window -->
+                <div id="mainChart" class="w-full h-[240px]"></div>
+                <!-- Sub-window VBox Histogram -->
+                <div id="vboxChart" class="w-full h-[120px] border-t border-slate-900"></div>
+                
+                <!-- Chart Loader Overlay -->
+                <div id="chartLoader" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-10 transition-opacity duration-300">
+                    <div class="flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-circle-notch animate-spin text-accentBlue text-2xl"></i>
+                        <span class="text-xs text-slate-400">Memproses Grafik...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<div id="info">
-  <div>GBP/USD</div>
-  <div>Candle: <span id="iTime">—</span></div>
-  <div>O <span id="iO">—</span></div>
-  <div>H <span id="iH">—</span></div>
-  <div>L <span id="iL">—</span></div>
-  <div>C <span id="iC">—</span></div>
-  <div>Sell: <span class="sc" id="iSell">—</span></div>
-  <div>Buy: <span class="bc" id="iBuy">—</span></div>
-  <div id="iNeutWrap" style="display:none">Neutral: <span class="nc" id="iNeut">—</span></div>
-  <div>Candles: <span id="iTotal">—</span></div>
-</div>
+        <!-- Indicator 1: Kekuatan (SBC Body Strength Percentage) -->
+        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-4 shadow-md">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-gauge-high text-indigo-400"></i>
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Kekuatan (SBC Body Strength)</h3>
+            </div>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between text-xs font-semibold">
+                    <span class="text-bullGreen">BUY: <span id="sbcBuyPct">-</span>%</span>
+                    <span class="text-bearRed">SELL: <span id="sbcSellPct">-</span>%</span>
+                </div>
+                <div class="h-3.5 w-full bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
+                    <div id="sbcBuyBar" class="h-full bg-bullGreen rounded-l-full transition-all duration-500" style="width: 50%"></div>
+                    <div id="sbcSellBar" class="h-full bg-bearRed rounded-r-full transition-all duration-500" style="width: 50%"></div>
+                </div>
+                <p class="text-[11px] text-slate-400 italic">Analisis total ukuran badan candle naik vs turun dalam 24 bar terakhir.</p>
+            </div>
+        </div>
 
-<div id="ov"><div class="spin"></div><div id="ovMsg">Menghubungi AI…</div></div>
+        <!-- Indicator Details Breakdown -->
+        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-4 shadow-md space-y-3">
+            <div class="flex items-center gap-2 border-b border-slate-800/60 pb-2">
+                <i class="fa-solid fa-circle-info text-amber-400"></i>
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Metrik Detail</h3>
+            </div>
 
-<script>
-// ─── Config ───────────────────────────────────────────────────────────────
-const ANTHROPIC_KEY = '8cd5e84fa4564322b907aaddac29b059';
-const SYMBOL = 'GBPUSD';
-const PAD = {t:18, r:62, b:24, l:8};
+            <!-- VBox Stats -->
+            <div class="flex justify-between items-center text-xs bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
+                <span class="text-slate-400">Nilai VBox (Lookback 14):</span>
+                <div class="flex items-center gap-2">
+                    <span id="vboxValueLabel" class="font-mono font-bold">-</span>
+                    <span id="vboxStatusLabel" class="text-[9px] font-bold px-2 py-0.5 rounded">-</span>
+                </div>
+            </div>
 
-// ─── State ────────────────────────────────────────────────────────────────
-let candles = []; // [{time,open,high,low,close}] oldest→newest
-let blocks  = []; // [{si,ei}]
-let viewStart = 0, viewCount = 80;
-let dragging = false, dragX0 = 0, dragVS0 = 0;
-let hoverI = -1;
+            <!-- EMA Ribbon Trend Status -->
+            <div class="flex justify-between items-center text-xs bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
+                <span class="text-slate-400">Arah Ribbon (EMA 12/26):</span>
+                <span id="ribbonStatus" class="text-xs font-bold px-2.5 py-0.5 rounded-full">-</span>
+            </div>
 
-// ─── DOM refs ─────────────────────────────────────────────────────────────
-const pCanvas = document.getElementById('pCanvas');
-const sCanvas = document.getElementById('sCanvas');
-const pCtx    = pCanvas.getContext('2d');
-const sCtx    = sCanvas.getContext('2d');
-const ov      = document.getElementById('ov');
-const ovMsg   = document.getElementById('ovMsg');
-const statusBar = document.getElementById('statusBar');
+            <!-- Outer Bands values -->
+            <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div class="bg-slate-950/20 p-2 rounded border border-slate-800/40">
+                    <div class="text-slate-500 text-[9px]">UPPER BAND</div>
+                    <div id="upperBandVal" class="text-slate-200 mt-0.5">-</div>
+                </div>
+                <div class="bg-slate-950/20 p-2 rounded border border-slate-800/40">
+                    <div class="text-slate-500 text-[9px]">LOWER BAND</div>
+                    <div id="lowerBandVal" class="text-slate-200 mt-0.5">-</div>
+                </div>
+            </div>
+        </div>
 
-const tfSel   = document.getElementById('tfSel');
-const blkSel  = document.getElementById('blkSel');
-const barsWrap= document.getElementById('barsWrap');
-const barsN   = document.getElementById('barsN');
-const neutCk  = document.getElementById('neutCk');
-const loadBtn = document.getElementById('loadBtn');
+    </main>
 
-blkSel.addEventListener('change', () => {
-  barsWrap.style.display = blkSel.value === 'bars' ? 'flex' : 'none';
-});
+    <!-- JS Logic -->
+    <script>
+        const API_KEY = '8cd5e84fa4564322b907aaddac29b059';
+        let currentAsset = 'GBP/USD';
+        
+        const cacheStore = {
+            'GBP/USD': { data: null, timestamp: 0 },
+            'EUR/USD': { data: null, timestamp: 0 }
+        };
+        const CACHE_DURATION = 60000; // 1 Menit cache
 
-// ─── AI Data Fetch ────────────────────────────────────────────────────────
-async function fetchOHLC(tf, count) {
-  // Build a realistic starting price for GBPUSD (~1.27xx area)
-  const prompt = `You are a financial data generator. Generate exactly ${count} realistic OHLC candlestick bars for GBP/USD (British Pound vs US Dollar) on the ${tf} timeframe.
+        // TradingView Lightweight Charts Instances
+        let mainChart, vboxChart;
+        let candleSeries, upperBandSeries, lowerBandSeries, fastEmaSeries, slowEmaSeries, vboxHistogramSeries;
 
-Rules:
-- Starting price: around 1.2680 (realistic 2024 GBPUSD range)
-- Price should move realistically: trends, pullbacks, ranging, volatility bursts
-- Each candle must have: open, high, low, close
-  - high >= max(open,close), low <= min(open,close)
-  - Typical spread/pip range per candle depends on TF:
-    M1: 5-20 pips, M5: 10-30 pips, M15: 15-50 pips, M30: 20-70 pips, H1: 30-100 pips, H4: 50-180 pips, D1: 80-250 pips
-  - 1 pip for GBPUSD = 0.0001
-- Times: consecutive, spaced by TF interval, starting from 2024-01-15 08:00 UTC
-- Include realistic market behaviour: gaps in weekly data if D1, skip weekends logically
+        // Inisialisasi visual canvas chart
+        function initCharts() {
+            const mainContainer = document.getElementById('mainChart');
+            const vboxContainer = document.getElementById('vboxChart');
 
-Return ONLY a raw JSON array. No markdown, no explanation, no code fences.
-Format: [{"t":1705305600000,"o":1.26820,"h":1.26950,"l":1.26780,"c":1.26900}, ...]
-Exactly ${count} elements.`;
+            mainContainer.innerHTML = '';
+            vboxContainer.innerHTML = '';
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
+            const commonOptions = {
+                layout: {
+                    background: { type: 'solid', color: '#090d16' },
+                    textColor: '#94a3b8',
+                },
+                grid: {
+                    vertLines: { color: '#131924' },
+                    horzLines: { color: '#131924' },
+                },
+                rightPriceScale: {
+                    borderColor: '#1e293b',
+                    scaleMargins: { top: 0.1, bottom: 0.1 },
+                },
+                timeScale: {
+                    borderColor: '#1e293b',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+                handleScale: { mouseWheel: true, pinchGesture: true },
+                handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+                crosshair: { mode: 0 }
+            };
 
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error('API ' + resp.status + ': ' + t.slice(0, 200));
-  }
+            // Main Chart: Candlestick + Bands
+            mainChart = LightweightCharts.createChart(mainContainer, {
+                ...commonOptions,
+                height: 240,
+            });
 
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error.message);
+            candleSeries = mainChart.addCandlestickSeries({
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderVisible: false,
+                wickUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+            });
 
-  const raw = data.content.map(b => b.type === 'text' ? b.text : '').join('').trim();
-  // Strip any accidental markdown fences
-  const clean = raw.replace(/^```[\w]*\n?/,'').replace(/\n?```$/,'').trim();
+            upperBandSeries = mainChart.addLineSeries({
+                color: '#ef4444', // OrangeRed
+                lineWidth: 1.5,
+                title: 'Upper Band',
+            });
 
-  let arr;
-  try {
-    arr = JSON.parse(clean);
-  } catch(e) {
-    // Try to extract JSON array
-    const m = clean.match(/\[[\s\S]*\]/);
-    if (!m) throw new Error('Tidak dapat parse JSON dari AI response');
-    arr = JSON.parse(m[0]);
-  }
+            lowerBandSeries = mainChart.addLineSeries({
+                color: '#10b981', // LimeGreen
+                lineWidth: 1.5,
+                title: 'Lower Band',
+            });
 
-  // Normalize + validate
-  return arr.map((v, i) => {
-    const o = +v.o, h = +v.h, l = +v.l, c = +v.c;
-    const hi = Math.max(o, c, h);
-    const lo = Math.min(o, c, l);
-    return { time: +v.t || (1705305600000 + i * tfToMs(tf)), open: o, high: hi, low: lo, close: c };
-  }).filter(v => v.open > 0 && v.close > 0);
-}
+            fastEmaSeries = mainChart.addLineSeries({
+                color: '#00fa9a',
+                lineWidth: 1,
+                lineStyle: 2, // Dashed
+            });
 
-function tfToMs(tf) {
-  const m = { M1: 60000, M5: 300000, M15: 900000, M30: 1800000, H1: 3600000, H4: 14400000, D1: 86400000 };
-  return m[tf] || 900000;
-}
+            slowEmaSeries = mainChart.addLineSeries({
+                color: '#ff6347',
+                lineWidth: 1,
+                lineStyle: 2, // Dashed
+            });
 
-// ─── Block Detection ──────────────────────────────────────────────────────
-function dayKey(ts) {
-  const d = new Date(ts);
-  return d.getUTCFullYear() * 10000 + d.getUTCMonth() * 100 + d.getUTCDate();
-}
-function weekKey(ts) {
-  const d = new Date(ts);
-  const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return d.getUTCFullYear() * 100 + Math.ceil(((d - jan1) / 86400000 + jan1.getUTCDay() + 1) / 7);
-}
+            // Sub-chart: VBox Histogram
+            vboxChart = LightweightCharts.createChart(vboxContainer, {
+                ...commonOptions,
+                height: 120,
+                timeScale: {
+                    ...commonOptions.timeScale,
+                    visible: false, // Sembunyikan garis waktu pada sub-chart agar rapi
+                }
+            });
 
-function buildBlocks(data, type, barsCount) {
-  const res = [];
-  if (!data.length) return res;
-  let start = 0;
-  for (let i = 1; i < data.length; i++) {
-    let newBlk = false;
-    if (type === 'daily')  newBlk = dayKey(data[i].time) !== dayKey(data[i-1].time);
-    else if (type === 'weekly') newBlk = weekKey(data[i].time) !== weekKey(data[i-1].time);
-    else if (type === 'bars')  newBlk = (i - start) >= barsCount;
-    if (newBlk) { res.push({ si: start, ei: i - 1 }); start = i; }
-  }
-  res.push({ si: start, ei: data.length - 1 });
-  return res;
-}
+            vboxHistogramSeries = vboxChart.addHistogramSeries({
+                base: 50, // Base histogram tengah
+            });
 
-// ─── Strength Calc ────────────────────────────────────────────────────────
-function calcStr(si, ei, showNeut) {
-  let buy = 0, sell = 0, neut = 0;
-  for (let i = si; i <= ei; i++) {
-    const { open: o, high: h, low: l, close: c } = candles[i];
-    const body = Math.abs(c - o);
-    if (showNeut) {
-      const uw = c > o ? h - c : h - o;
-      const lw = c > o ? o - l : c - l;
-      if (c > o) buy += body; else if (c < o) sell += body;
-      neut += uw + lw;
-    } else {
-      if (c > o) buy += c - o; else if (c < o) sell += o - c;
-    }
-  }
-  const tot = buy + sell + neut || 1;
-  return { buy: buy / tot * 100, sell: sell / tot * 100, neut: neut / tot * 100 };
-}
+            // Set referensi garis horizontal statis 15 dan 85
+            vboxHistogramSeries.createPriceLine({
+                price: 15,
+                color: '#00ffff',
+                lineWidth: 1,
+                lineStyle: 2,
+                title: 'L:15',
+            });
 
-// ─── Canvas helpers ───────────────────────────────────────────────────────
-const DR = () => window.devicePixelRatio || 1;
+            vboxHistogramSeries.createPriceLine({
+                price: 85,
+                color: '#ffd700',
+                lineWidth: 1,
+                lineStyle: 2,
+                title: 'H:85',
+            });
 
-function resize(cv) {
-  const r = cv.parentElement.getBoundingClientRect();
-  const d = DR();
-  cv.width  = r.width  * d;
-  cv.height = r.height * d;
-}
+            // Sinkronisasi horizontal scroll dan zoom antar kedua grafik
+            let isSyncing = false;
+            mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (isSyncing) return;
+                isSyncing = true;
+                vboxChart.timeScale().setVisibleLogicalRange(range);
+                isSyncing = false;
+            });
 
-function clamp() {
-  viewCount = Math.max(10, Math.min(candles.length, viewCount));
-  viewStart = Math.max(0, Math.min(candles.length - viewCount, viewStart));
-}
+            vboxChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (isSyncing) return;
+                isSyncing = true;
+                mainChart.timeScale().setVisibleLogicalRange(range);
+                isSyncing = false;
+            });
+        }
 
-// ─── Draw Price ───────────────────────────────────────────────────────────
-function drawPrice() {
-  resize(pCanvas);
-  const d = DR();
-  const W = pCanvas.width, H = pCanvas.height;
-  const pw = W - (PAD.l + PAD.r) * d;
-  const ph = H - (PAD.t + PAD.b) * d;
-  pCtx.clearRect(0, 0, W, H);
+        function updateUIState(loading) {
+            const refreshIcon = document.getElementById('refreshIcon');
+            const apiStatus = document.getElementById('apiStatus');
+            const chartLoader = document.getElementById('chartLoader');
 
-  clamp();
-  const vis = candles.slice(viewStart, viewStart + viewCount);
-  if (!vis.length) return;
+            if (loading) {
+                refreshIcon.classList.add('animate-spin');
+                apiStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span> Fetching...`;
+                chartLoader.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                refreshIcon.classList.remove('animate-spin');
+                apiStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-emerald-500"></span> Ready`;
+                chartLoader.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
 
-  const hi  = Math.max(...vis.map(c => c.high));
-  const lo  = Math.min(...vis.map(c => c.low));
-  const rng = hi - lo || 0.0001;
-  const cw  = pw / vis.length;
+        function switchAsset(asset) {
+            if (currentAsset === asset) return;
+            currentAsset = asset;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 text-slate-400 hover:text-slate-200";
+            });
+            const activeBtn = document.getElementById(`btn-${asset.replace('/', '')}`);
+            activeBtn.className = "tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 bg-accentBlue text-white shadow-md";
 
-  const toY = v => PAD.t * d + ph * (1 - (v - lo) / rng);
-  const toX = i => PAD.l * d + i * cw + cw / 2;
+            document.getElementById('assetLabel').innerText = asset;
+            fetchData();
+        }
 
-  // Grid H lines
-  pCtx.lineWidth = 1;
-  for (let g = 0; g <= 5; g++) {
-    const y   = PAD.t * d + ph * g / 5;
-    const val = hi - rng * g / 5;
-    pCtx.strokeStyle = '#1c1f24';
-    pCtx.beginPath(); pCtx.moveTo(PAD.l * d, y); pCtx.lineTo(W - PAD.r * d, y); pCtx.stroke();
-    pCtx.fillStyle = '#3a3f4a';
-    pCtx.font = `${10 * d}px Consolas,monospace`;
-    pCtx.textAlign = 'left';
-    pCtx.fillText(val.toFixed(5), W - PAD.r * d + 4, y + 4);
-  }
+        async function fetchData(force = false) {
+            updateUIState(true);
+            const now = Date.now();
+            
+            if (!force && cacheStore[currentAsset].data && (now - cacheStore[currentAsset].timestamp < CACHE_DURATION)) {
+                processAndDisplay(cacheStore[currentAsset].data);
+                updateUIState(false);
+                return;
+            }
 
-  // Block separators
-  const blkSet = new Set();
-  for (const b of blocks) {
-    if (b.si > viewStart && b.si < viewStart + viewCount) blkSet.add(b.si - viewStart);
-  }
-  pCtx.setLineDash([3 * d, 4 * d]);
-  pCtx.strokeStyle = 'rgba(90,100,120,0.3)';
-  pCtx.lineWidth = 1;
-  for (const li of blkSet) {
-    const x = PAD.l * d + li * cw;
-    pCtx.beginPath(); pCtx.moveTo(x, PAD.t * d); pCtx.lineTo(x, H - PAD.b * d); pCtx.stroke();
-  }
-  pCtx.setLineDash([]);
+            try {
+                // Fetch 120 H1 candle agar kalkulasi Moving Average 50 optimal
+                const url = `https://api.twelvedata.com/time_series?symbol=${currentAsset}&interval=1h&outputsize=120&apikey=${API_KEY}`;
+                const response = await fetch(url);
+                const result = await response.json();
 
-  // Candles
-  for (let i = 0; i < vis.length; i++) {
-    const c = vis[i];
-    const x = toX(i);
-    const bull = c.close >= c.open;
-    const col  = bull ? '#3dba7e' : '#e05656';
-    const bTop = toY(Math.max(c.open, c.close));
-    const bBot = toY(Math.min(c.open, c.close));
-    const bH   = Math.max(bBot - bTop, 1);
-    const bW   = Math.max(cw * 0.62, 1.5);
+                if (result.status === 'error') {
+                    alert('Error Twelve Data: ' + result.message);
+                    updateUIState(false);
+                    return;
+                }
 
-    pCtx.strokeStyle = col; pCtx.lineWidth = Math.max(1, cw * 0.07);
-    pCtx.beginPath(); pCtx.moveTo(x, toY(c.high)); pCtx.lineTo(x, toY(c.low)); pCtx.stroke();
-    pCtx.fillStyle = bull ? '#3dba7e' : '#e05656';
-    pCtx.fillRect(x - bW / 2, bTop, bW, bH);
+                if (result.values && result.values.length > 0) {
+                    const seenTimes = new Set();
+                    const processedData = [];
+                    const reversedValues = [...result.values].reverse();
 
-    if (hoverI === viewStart + i) {
-      pCtx.strokeStyle = 'rgba(255,255,255,.2)';
-      pCtx.lineWidth = 1;
-      pCtx.strokeRect(x - bW / 2 - 1, bTop - 1, bW + 2, bH + 2);
-    }
-  }
+                    // Urutkan & hilangkan duplikasi timestamp agar tidak terjadi crash pada Lightweight Charts
+                    for (const item of reversedValues) {
+                        const timeInSecs = Math.floor(Date.parse(item.datetime) / 1000);
+                        if (isNaN(timeInSecs) || seenTimes.has(timeInSecs)) continue;
+                        seenTimes.add(timeInSecs);
 
-  // X labels
-  pCtx.fillStyle = '#3a3f4a';
-  pCtx.font = `${9 * d}px Consolas,monospace`;
-  pCtx.textAlign = 'center';
-  const step = Math.max(1, Math.floor(vis.length / 7));
-  for (let i = 0; i < vis.length; i += step) {
-    const dt = new Date(vis[i].time);
-    const lbl = `${String(dt.getUTCMonth()+1).padStart(2,'0')}/${String(dt.getUTCDate()).padStart(2,'0')} ${String(dt.getUTCHours()).padStart(2,'0')}:${String(dt.getUTCMinutes()).padStart(2,'0')}`;
-    pCtx.fillText(lbl, toX(i), H - 6 * d);
-  }
-}
+                        processedData.push({
+                            time: timeInSecs,
+                            datetime: item.datetime,
+                            open: parseFloat(item.open),
+                            high: parseFloat(item.high),
+                            low: parseFloat(item.low),
+                            close: parseFloat(item.close)
+                        });
+                    }
 
-// ─── Draw Strength ────────────────────────────────────────────────────────
-function drawStrength() {
-  resize(sCanvas);
-  const d  = DR();
-  const W  = sCanvas.width, H = sCanvas.height;
-  const pw = W - (PAD.l + PAD.r) * d;
-  sCtx.clearRect(0, 0, W, H);
+                    cacheStore[currentAsset].data = processedData;
+                    cacheStore[currentAsset].timestamp = now;
+                    processAndDisplay(processedData);
+                }
+            } catch (error) {
+                console.error("Gagal terhubung dengan API:", error);
+                alert("Koneksi gagal. Silakan coba beberapa saat lagi.");
+            }
+            updateUIState(false);
+        }
 
-  clamp();
-  const vis = candles.slice(viewStart, viewStart + viewCount);
-  if (!vis.length || !blocks.length) return;
-  const cw = pw / vis.length;
-  const showN = neutCk.checked;
+        // ================= MATHEMATICAL CALCULATIONS =================
 
-  // Borders
-  sCtx.strokeStyle = '#222529'; sCtx.lineWidth = 1;
-  sCtx.beginPath(); sCtx.moveTo(PAD.l * d, 0.5); sCtx.lineTo(W - PAD.r * d, 0.5); sCtx.stroke();
-  sCtx.beginPath(); sCtx.moveTo(PAD.l * d, H - 0.5); sCtx.lineTo(W - PAD.r * d, H - 0.5); sCtx.stroke();
+        function calcEMA(data, period) {
+            const k = 2 / (period + 1);
+            const ema = new Array(data.length).fill(0);
+            let sum = 0;
+            for (let i = 0; i < period; i++) sum += data[i].close;
+            ema[period - 1] = sum / period;
+            for (let i = period; i < data.length; i++) {
+                ema[i] = data[i].close * k + ema[i - 1] * (1 - k);
+            }
+            return ema;
+        }
 
-  // Mid grid lines
-  sCtx.setLineDash([2 * d, 4 * d]);
-  sCtx.strokeStyle = '#1c1f24';
-  if (showN) {
-    [H / 3, H * 2 / 3].forEach(y => {
-      sCtx.beginPath(); sCtx.moveTo(PAD.l * d, y); sCtx.lineTo(W - PAD.r * d, y); sCtx.stroke();
-    });
-  } else {
-    sCtx.beginPath(); sCtx.moveTo(PAD.l * d, H / 2); sCtx.lineTo(W - PAD.r * d, H / 2); sCtx.stroke();
-  }
-  sCtx.setLineDash([]);
+        function calcLWMA(data, period) {
+            const lwma = new Array(data.length).fill(0);
+            const weightSum = (period * (period + 1)) / 2;
+            for (let i = period - 1; i < data.length; i++) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += data[i - j].close * (period - j);
+                }
+                lwma[i] = sum / weightSum;
+            }
+            return lwma;
+        }
 
-  for (const b of blocks) {
-    const ve = viewStart + vis.length - 1;
-    if (b.ei < viewStart || b.si > ve) continue;
-    const li0 = Math.max(b.si - viewStart, 0);
-    const li1 = Math.min(b.ei - viewStart, vis.length - 1);
-    const x0  = PAD.l * d + li0 * cw;
-    const x1  = PAD.l * d + (li1 + 1) * cw;
-    const mx  = (x0 + x1) / 2;
+        function calcATR(data, period) {
+            const atr = new Array(data.length).fill(0);
+            const tr = new Array(data.length).fill(0);
+            for (let i = 1; i < data.length; i++) {
+                const h = data[i].high;
+                const l = data[i].low;
+                const pc = data[i - 1].close;
+                tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+            }
+            let trSum = 0;
+            for (let i = 1; i <= period; i++) trSum += tr[i];
+            atr[period] = trSum / period;
+            for (let i = period + 1; i < data.length; i++) {
+                atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+            }
+            return atr;
+        }
 
-    // Sep line
-    sCtx.setLineDash([2 * d, 3 * d]);
-    sCtx.strokeStyle = 'rgba(80,90,110,0.35)';
-    sCtx.lineWidth = 1;
-    sCtx.beginPath(); sCtx.moveTo(x0, 0); sCtx.lineTo(x0, H); sCtx.stroke();
-    sCtx.setLineDash([]);
+        function calcSBCStrength(data) {
+            let totalBuy = 0;
+            let totalSell = 0;
+            const startIdx = Math.max(0, data.length - 24);
+            for (let i = startIdx; i < data.length; i++) {
+                const body = Math.abs(data[i].close - data[i].open);
+                if (data[i].close > data[i].open) {
+                    totalBuy += body;
+                } else if (data[i].close < data[i].open) {
+                    totalSell += body;
+                }
+            }
+            const total = totalBuy + totalSell;
+            if (total > 0) {
+                return {
+                    buy: Math.round((totalBuy / total) * 100),
+                    sell: Math.round((totalSell / total) * 100)
+                };
+            }
+            return { buy: 50, sell: 50 };
+        }
 
-    const { buy, sell, neut } = calcStr(b.si, b.ei, showN);
-    const fs = Math.min(11 * d, Math.max(8.5 * d, (x1 - x0) * 0.13));
-    sCtx.font = `bold ${fs}px Consolas,monospace`;
-    sCtx.textAlign = 'center';
+        function calcVBox(data) {
+            const raw = new Array(data.length).fill(50);
+            const lookback = 14;
+            const smooth = 3;
+            
+            for (let i = lookback - 1; i < data.length; i++) {
+                let highestHigh = data[i].high;
+                let lowestLow = data[i].low;
+                for (let k = 1; k < lookback; k++) {
+                    if (data[i - k].high > highestHigh) highestHigh = data[i - k].high;
+                    if (data[i - k].low < lowestLow) lowestLow = data[i - k].low;
+                }
+                const range = highestHigh - lowestLow;
+                raw[i] = range > 0 ? ((data[i].close - lowestLow) / range) * 100 : 50;
+            }
 
-    if (showN) {
-      sCtx.fillStyle = '#e05656';
-      sCtx.fillText(`sell ${Math.round(sell)}%`, mx, H * 0.20);
-      sCtx.fillStyle = '#525865';
-      sCtx.fillText(`neutral ${Math.round(neut)}%`, mx, H * 0.52);
-      sCtx.fillStyle = '#3dba7e';
-      sCtx.fillText(`buy ${Math.round(buy)}%`, mx, H * 0.84);
-    } else {
-      sCtx.fillStyle = '#e05656';
-      sCtx.fillText(`sell ${Math.round(sell)}%`, mx, H * 0.30);
-      sCtx.fillStyle = '#3dba7e';
-      sCtx.fillText(`buy ${Math.round(buy)}%`, mx, H * 0.74);
-    }
+            const smoothed = new Array(data.length).fill(50);
+            for (let i = lookback + smooth - 2; i < data.length; i++) {
+                let sum = 0;
+                for (let s = 0; s < smooth; s++) {
+                    sum += raw[i - s];
+                }
+                smoothed[i] = sum / smooth;
+            }
+            return smoothed;
+        }
 
-    // Update info bar for hovered block
-    if (hoverI >= b.si && hoverI <= b.ei) {
-      document.getElementById('iSell').textContent = Math.round(sell) + '%';
-      document.getElementById('iBuy').textContent  = Math.round(buy) + '%';
-      document.getElementById('iNeut').textContent = Math.round(neut) + '%';
-    }
-  }
-}
+        // ================= DISPLAY & ANALYSIS INTERFACES =================
 
-function redraw() { drawPrice(); drawStrength(); }
+        function processAndDisplay(data) {
+            const n = data.length;
+            const latestBar = data[n - 1];
+            
+            // Perbarui visual harga
+            document.getElementById('currentPrice').innerText = latestBar.close.toFixed(5);
+            const priceDirectionIcon = document.getElementById('priceDirectionIcon');
+            priceDirectionIcon.innerHTML = latestBar.close >= latestBar.open ? 
+                `<i class="fa-solid fa-caret-up text-bullGreen"></i>` : 
+                `<i class="fa-solid fa-caret-down text-bearRed"></i>`;
 
-// ─── Load ─────────────────────────────────────────────────────────────────
-function showOv(msg) { ovMsg.textContent = msg; ov.classList.add('on'); }
-function hideOv() { ov.classList.remove('on'); }
+            // 1. SBC Strength
+            const strength = calcSBCStrength(data);
+            document.getElementById('sbcBuyPct').innerText = strength.buy;
+            document.getElementById('sbcSellPct').innerText = strength.sell;
+            document.getElementById('sbcBuyBar').style.width = `${strength.buy}%`;
+            document.getElementById('sbcSellBar').style.width = `${strength.sell}%`;
 
-async function load() {
-  loadBtn.disabled = true;
-  showOv('Menghubungi Anthropic AI…');
-  statusBar.textContent = 'Memuat…';
+            // 2. VBox Histogram Values
+            const vboxArr = calcVBox(data);
+            const latestVBoxVal = vboxArr[n - 1];
+            document.getElementById('vboxValueLabel').innerText = latestVBoxVal.toFixed(2);
+            
+            const vboxStatusLabel = document.getElementById('vboxStatusLabel');
+            if (latestVBoxVal < 15) {
+                vboxStatusLabel.innerText = "OVERSOLD";
+                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-bullGreen";
+            } else if (latestVBoxVal > 85) {
+                vboxStatusLabel.innerText = "OVERBOUGHT";
+                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-rose-950 text-bearRed";
+            } else {
+                vboxStatusLabel.innerText = "NORMAL";
+                vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400";
+            }
 
-  try {
-    const tf  = tfSel.value;
-    const cnt = tf === 'D1' ? 120 : tf === 'H4' ? 200 : tf === 'H1' ? 300 : 400;
+            // 3. EMA Ribbon & LWMA Channels
+            const ema12 = calcEMA(data, 12);
+            const ema26 = calcEMA(data, 26);
+            const lwma50 = calcLWMA(data, 50);
+            const atr14 = calcATR(data, 14);
 
-    showOv(`Generating ${cnt} candles GBP/USD ${tf}…`);
-    candles = await fetchOHLC(tf, cnt);
+            const isBullishRibbon = ema12[n - 1] > ema26[n - 1];
+            const ribbonEl = document.getElementById('ribbonStatus');
+            if (isBullishRibbon) {
+                ribbonEl.innerText = "BULLISH";
+                ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-bullGreen border border-emerald-850";
+            } else {
+                ribbonEl.innerText = "BEARISH";
+                ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-bearRed border border-rose-850";
+            }
 
-    if (!candles.length) throw new Error('Data kosong dari AI');
+            const currentLWMA = lwma50[n - 1];
+            const currentATR = atr14[n - 1];
+            const upperBand = currentLWMA + (currentATR * 2.5);
+            const lowerBand = currentLWMA - (currentATR * 2.5);
+            document.getElementById('upperBandVal').innerText = upperBand.toFixed(5);
+            document.getElementById('lowerBandVal').innerText = lowerBand.toFixed(5);
 
-    // Build blocks
-    const bt = blkSel.value, bc = parseInt(barsN.value) || 24;
-    blocks = buildBlocks(candles, bt, bc);
+            // ================= POPULATE CHART DATA =================
+            const candles = [];
+            const upperBandPoints = [];
+            const lowerBandPoints = [];
+            const fastEmaPoints = [];
+            const slowEmaPoints = [];
+            const vboxHistogramPoints = [];
+            const mainChartMarkers = [];
 
-    // Default view: last 80 candles
-    viewCount = Math.min(80, candles.length);
-    viewStart = candles.length - viewCount;
+            const pipSize = 0.0001;
 
-    document.getElementById('iTotal').textContent = candles.length + ' candles · ' + blocks.length + ' blocks';
-    statusBar.textContent = `GBP/USD ${tf} · ${candles.length} candles · ${blocks.length} blocks`;
-    redraw();
-  } catch (e) {
-    statusBar.textContent = '⚠ ' + e.message;
-    console.error(e);
-  } finally {
-    hideOv();
-    loadBtn.disabled = false;
-  }
-}
+            for (let i = 0; i < n; i++) {
+                const item = data[i];
+                const time = item.time;
 
-loadBtn.addEventListener('click', load);
+                candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close });
 
-// ─── Interaction ──────────────────────────────────────────────────────────
-// Scroll = zoom
-window.addEventListener('wheel', e => {
-  if (!candles.length) return;
-  e.preventDefault();
-  const d = e.deltaY > 0 ? 6 : -6;
-  viewCount = Math.max(10, Math.min(candles.length, viewCount + d));
-  viewStart = Math.max(0, Math.min(candles.length - viewCount, viewStart));
-  redraw();
-}, { passive: false });
+                if (i >= 49) {
+                    const centerMA = lwma50[i];
+                    const atr = atr14[i];
+                    const uBand = centerMA + (atr * 2.5);
+                    const lBand = centerMA - (atr * 2.5);
 
-// Drag = pan
-pCanvas.addEventListener('mousedown', e => {
-  dragging = true;
-  dragX0 = e.clientX;
-  dragVS0 = viewStart;
-});
-window.addEventListener('mousemove', e => {
-  if (!candles.length) return;
-  if (dragging) {
-    const d  = DR();
-    const pw = pCanvas.width - (PAD.l + PAD.r) * d;
-    const cw = pw / viewCount;
-    const dx = e.clientX - dragX0;
-    viewStart = Math.max(0, Math.min(candles.length - viewCount, dragVS0 - Math.round(dx * d / cw)));
-    redraw();
-    return;
-  }
-  // Hover
-  const rect = pCanvas.getBoundingClientRect();
-  const dpr  = DR();
-  const pw   = pCanvas.width - (PAD.l + PAD.r) * dpr;
-  const cw   = pw / viewCount;
-  const mx   = (e.clientX - rect.left) * dpr - PAD.l * dpr;
-  const ci   = Math.floor(mx / cw);
-  if (ci >= 0 && ci < viewCount) {
-    const ai = viewStart + ci;
-    if (ai !== hoverI) {
-      hoverI = ai;
-      const c = candles[ai];
-      if (c) {
-        const dt = new Date(c.time);
-        document.getElementById('iTime').textContent =
-          `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')} ${String(dt.getUTCHours()).padStart(2,'0')}:${String(dt.getUTCMinutes()).padStart(2,'0')}`;
-        document.getElementById('iO').textContent = c.open.toFixed(5);
-        document.getElementById('iH').textContent = c.high.toFixed(5);
-        document.getElementById('iL').textContent = c.low.toFixed(5);
-        document.getElementById('iC').textContent = c.close.toFixed(5);
-      }
-      redraw();
-    }
-  }
-});
-window.addEventListener('mouseup', () => { dragging = false; });
+                    upperBandPoints.push({ time, value: uBand });
+                    lowerBandPoints.push({ time, value: lBand });
 
-// Neutral toggle
-neutCk.addEventListener('change', () => {
-  document.getElementById('iNeutWrap').style.display = neutCk.checked ? 'block' : 'none';
-  if (candles.length) redraw();
-});
+                    // Logika Swing High/Low untuk Penempatan Sinyal Gear pada Chart (Non-Repaint)
+                    if (i < n - 1) {
+                        const lowCur = item.low;
+                        const lowPrev = data[i - 1].low;
+                        const lowNext = data[i + 1].low;
+                        
+                        const highCur = item.high;
+                        const highPrev = data[i - 1].high;
+                        const highNext = data[i + 1].high;
 
-// Resize
-const ro = new ResizeObserver(() => { if (candles.length) redraw(); });
-ro.observe(document.getElementById('priceWrap'));
-ro.observe(document.getElementById('sbWrap'));
-</script>
+                        if (lowCur < lowPrev && lowCur < lowNext) {
+                            if (lowCur <= lBand + (5 * pipSize)) {
+                                mainChartMarkers.push({
+                                    time,
+                                    position: 'belowBar',
+                                    color: '#10b981',
+                                    shape: 'arrowUp',
+                                    text: 'GEAR BUY',
+                                });
+                            }
+                        }
+
+                        if (highCur > highPrev && highCur > highNext) {
+                            if (highCur >= uBand - (5 * pipSize)) {
+                                mainChartMarkers.push({
+                                    time,
+                                    position: 'aboveBar',
+                                    color: '#ef4444',
+                                    shape: 'arrowDown',
+                                    text: 'GEAR SELL',
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (i >= 11) fastEmaPoints.push({ time, value: ema12[i] });
+                if (i >= 25) slowEmaPoints.push({ time, value: ema26[i] });
+
+                // VBox Histogram Data Points
+                if (i >= 15) {
+                    const isBull = item.close >= item.open;
+                    vboxHistogramPoints.push({
+                        time,
+                        value: vboxArr[i],
+                        color: isBull ? '#1e90ff' : '#ff1493' // Biru untuk Bullish, Pink untuk Bearish (sesuai gambar)
+                    });
+                }
+            }
+
+            // Memasukkan array data ke masing-masing series chart
+            candleSeries.setData(candles);
+            upperBandSeries.setData(upperBandPoints);
+            lowerBandSeries.setData(lowerBandPoints);
+            fastEmaSeries.setData(fastEmaPoints);
+            slowEmaSeries.setData(slowEmaPoints);
+            vboxHistogramSeries.setData(vboxHistogramPoints);
+
+            // Terapkan penanda (markers) sinyal pada chart candlestick
+            candleSeries.setMarkers(mainChartMarkers);
+
+            // ================= VERDICT DECISION ALGORITHM =================
+            let score = 50; 
+            if (isBullishRibbon) score += 15; else score -= 15;
+            if (strength.buy > 55) score += 15; if (strength.sell > 55) score -= 15;
+            if (latestVBoxVal < 20) score += 20; if (latestVBoxVal > 80) score -= 20;
+
+            // Periksa keberadaan sinyal gear aktif terakhir
+            const lastMarker = mainChartMarkers[mainChartMarkers.length - 1];
+            if (lastMarker) {
+                if (lastMarker.shape === 'arrowUp') score += 20;
+                else if (lastMarker.shape === 'arrowDown') score -= 20;
+            }
+
+            score = Math.max(5, Math.min(95, score));
+
+            const verdictText = document.getElementById('signalVerdict');
+            const verdictBar = document.getElementById('verdictBar');
+            const glowBg = document.getElementById('glowBg');
+            const signalMainCard = document.getElementById('signalMainCard');
+
+            verdictBar.style.width = `${score}%`;
+
+            if (score >= 70) {
+                verdictText.innerText = "STRONG BUY";
+                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bullGreen";
+                verdictBar.className = "h-full bg-bullGreen transition-all duration-500";
+                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-emerald-500 transition-all duration-500";
+                signalMainCard.className = "bg-cardBg rounded-2xl border border-emerald-900/40 p-5 shadow-xl relative overflow-hidden";
+            } else if (score > 55 && score < 70) {
+                verdictText.innerText = "BUY";
+                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-emerald-400";
+                verdictBar.className = "h-full bg-emerald-400 transition-all duration-500";
+                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-emerald-400 transition-all duration-500";
+                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+            } else if (score < 30) {
+                verdictText.innerText = "STRONG SELL";
+                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bearRed";
+                verdictBar.className = "h-full bg-bearRed transition-all duration-500";
+                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-rose-500 transition-all duration-500";
+                signalMainCard.className = "bg-cardBg rounded-2xl border border-rose-900/40 p-5 shadow-xl relative overflow-hidden";
+            } else if (score >= 30 && score < 45) {
+                verdictText.innerText = "SELL";
+                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-rose-400";
+                verdictBar.className = "h-full bg-rose-400 transition-all duration-500";
+                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-rose-400 transition-all duration-500";
+                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+            } else {
+                verdictText.innerText = "NEUTRAL";
+                verdictText.className = "text-2xl font-black mt-1 tracking-wider text-slate-400";
+                verdictBar.className = "h-full bg-slate-600 transition-all duration-500";
+                glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-0 transition-all duration-500";
+                signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
+            }
+        }
+
+        // Penanganan penyesuaian ukuran otomatis saat orientasi/layar HP berubah
+        window.addEventListener('resize', () => {
+            if (mainChart && vboxChart) {
+                const containerWidth = document.getElementById('mainChart').clientWidth;
+                mainChart.resize(containerWidth, 240);
+                vboxChart.resize(containerWidth, 120);
+            }
+        });
+
+        // Inisialisasi awal aplikasi
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            fetchData();
+            
+            // Auto refresh setiap 60 detik
+            setInterval(() => {
+                fetchData(false);
+            }, 60000);
+        });
+    </script>
 </body>
 </html>
