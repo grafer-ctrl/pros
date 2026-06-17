@@ -1,784 +1,840 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Forex Signal Analyzer Pro - Fixed</title>
-    <!-- Tailwind CSS & FontAwesome Icons -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Menggunakan CDN jsDelivr yang lebih stabil untuk Mobile Webview -->
-    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        darkBg: '#090d16',
-                        cardBg: '#121824',
-                        accentBlue: '#3b82f6',
-                        bullGreen: '#10b981',
-                        bearRed: '#ef4444',
-                        neutralGray: '#64748b'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1e293b;
-            border-radius: 10px;
-        }
-        body {
-            -webkit-tap-highlight-color: transparent;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analisa Teknikal</title>
+  <style>
+    /* Styling Flat & Berbingkai Tebal Sesuai Sketsa */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Courier New', Courier, monospace, sans-serif;
+    }
+
+    body {
+      background-color: #ffffff;
+      color: #000000;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Judul Utama */
+    header h1 {
+      font-size: 26px;
+      font-weight: 900;
+      text-align: center;
+      text-transform: capitalize;
+      letter-spacing: -0.5px;
+      margin-bottom: 5px;
+    }
+
+    /* Desain Box UI */
+    .card {
+      border: 5px solid #000000;
+      background-color: #ffffff;
+      position: relative;
+      width: 100%;
+    }
+
+    .indicator-title {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      font-weight: 900;
+      font-size: 18px;
+      color: #000000;
+      line-height: 1.2;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Ukuran khusus masing-masing panel canvas */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+    }
+
+    #chartCanvas {
+      height: 350px;
+    }
+
+    #percentageCanvas {
+      height: 150px;
+    }
+
+    #histogramCanvas {
+      height: 160px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+    }
+
+    /* Baris Tombol Kontrol */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-start;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      border: 4px solid #000000;
+      background-color: #ffffff;
+      color: #000000;
+      font-weight: 900;
+      font-size: 16px;
+      padding: 6px 14px;
+      cursor: pointer;
+      text-transform: lowercase;
+      transition: background-color 0.1s ease;
+    }
+
+    .btn:hover {
+      background-color: #f0f0f0;
+    }
+
+    .btn.active {
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    /* Panel Informasi Tambahan (Tooltip/Status) */
+    .info-panel {
+      border: 4px solid #000000;
+      background-color: #ffffff;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      min-height: 50px;
+    }
+
+    .status-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      z-index: 20;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background-color: #000000;
+      color: #ffffff;
+      font-size: 11px;
+      margin-left: 10px;
+    }
+  </style>
 </head>
-<body class="bg-darkBg text-slate-100 font-sans min-h-screen pb-12">
+<body>
 
-    <!-- Error Banner (Tersembunyi secara default, akan muncul jika ada masalah data/API) -->
-    <div id="errorBanner" class="bg-bearRed/90 text-white text-xs text-center py-2 px-4 hidden sticky top-0 z-50 backdrop-blur-sm">
-        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="errorMsg">Terjadi kesalahan pemrosesan data.</span>
-    </div>
-
-    <!-- Header -->
-    <header class="bg-cardBg/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <div class="bg-gradient-to-tr from-accentBlue to-indigo-500 p-2 rounded-xl text-white shadow-lg shadow-accentBlue/20">
-                <i class="fa-solid fa-chart-area text-lg"></i>
-            </div>
-            <div>
-                <h1 class="text-base font-bold tracking-tight">Signal Analyzer</h1>
-                <span class="text-[10px] text-slate-400 font-mono">LIVE CHART & HISTOGRAM</span>
-            </div>
-        </div>
-        <div class="flex items-center gap-2">
-            <span id="apiStatus" class="flex items-center gap-1.5 text-xs bg-slate-800 px-2.5 py-1 rounded-full text-slate-300">
-                <span id="statusIndicator" class="h-2 w-2 rounded-full bg-emerald-500"></span> <span id="statusText">Ready</span>
-            </span>
-        </div>
+  <div class="container">
+    <header>
+      <h1>Analisa teknikal</h1>
     </header>
 
-    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+    <!-- Box 1: Chanel Indikator -->
+    <div class="card">
+      <div class="indicator-title">chanel indikator</div>
+      <div class="canvas-container">
+        <canvas id="chartCanvas"></canvas>
+        <div id="chartStatus" class="status-overlay">Memuat data...</div>
+      </div>
+    </div>
 
-        <!-- Asset Selector Tabs -->
-        <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
-            <button onclick="switchAsset('GBP/USD')" id="btn-GBPUSD" class="tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 bg-accentBlue text-white shadow-md">
-                GBP/USD
-            </button>
-            <button onclick="switchAsset('EUR/USD')" id="btn-EURUSD" class="tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 text-slate-400 hover:text-slate-200">
-                EUR/USD
-            </button>
-        </div>
+    <!-- Baris Tombol Kontrol -->
+    <div class="controls-row">
+      <div class="btn-group" id="tfGroup">
+        <button class="btn active" data-tf="h1">h1</button>
+        <button class="btn" data-tf="h4">h4</button>
+        <button class="btn" data-tf="d1">d1</button>
+      </div>
+      <div class="btn-group" id="symbolGroup">
+        <button class="btn active" data-symbol="GBP/USD">gbp/usd</button>
+        <button class="btn" data-symbol="EUR/USD">eur/usd</button>
+      </div>
+      <span id="dataSourceBadge" class="status-badge" style="align-self: center;">API Terhubung</span>
+    </div>
 
-        <!-- Main Signal Card -->
-        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden" id="signalMainCard">
-            <div id="glowBg" class="absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 transition-all duration-500"></div>
+    <!-- Box 2: Prosentase Indikator -->
+    <div class="card">
+      <div class="indicator-title">
+        <div>prosentase</div>
+        <div>indikator</div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="percentageCanvas"></canvas>
+      </div>
+    </div>
 
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-xs text-slate-400 uppercase tracking-widest font-semibold" id="assetLabel">GBP/USD</span>
-                    <div class="flex items-baseline gap-2 mt-0.5">
-                        <span id="currentPrice" class="text-3xl font-extrabold font-mono tracking-tight">-</span>
-                        <span id="priceDirectionIcon" class="text-lg"></span>
-                    </div>
-                </div>
-                <button onclick="fetchData(true)" class="p-2.5 bg-slate-800/60 hover:bg-slate-800 rounded-xl transition border border-slate-700/50">
-                    <i id="refreshIcon" class="fa-solid fa-arrows-rotate text-slate-300"></i>
-                </button>
-            </div>
+    <!-- Box 3: Histogram Indikator -->
+    <div class="card">
+      <div class="indicator-title">
+        <div>histogram</div>
+        <div>indikator</div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="histogramCanvas"></canvas>
+      </div>
+    </div>
 
-            <!-- Signal Recommendation -->
-            <div class="mt-6 flex flex-col items-center justify-center py-4 bg-slate-950/40 rounded-xl border border-slate-800/50">
-                <span class="text-xs text-slate-400 font-medium">REKOMENDASI ANALISIS</span>
-                <span id="signalVerdict" class="text-2xl font-black mt-1 tracking-wider text-slate-400">-</span>
-                <div class="w-full px-6 mt-4">
-                    <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
-                        <div id="verdictBar" class="h-full bg-slate-600 transition-all duration-500" style="width: 50%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Panel Informasi / Detail Nilai -->
+    <div id="infoPanel" class="info-panel">
+      Arahkan kursor pada grafik untuk melihat data teknikal terperinci.
+    </div>
+  </div>
 
-        <!-- INTEGRATED CHART VIEW (CANDLESTICK + HISTOGRAM SUB-WINDOW) -->
-        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-3 shadow-lg space-y-1 overflow-hidden">
-            <div class="flex items-center justify-between px-1 mb-2">
-                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase">
-                    <i class="fa-solid fa-chart-line text-accentBlue"></i>
-                    <span>Tampilan Grafik H1</span>
-                </div>
-                <span class="text-[9px] text-slate-500 font-mono">Gunakan 2 jari untuk zoom/geser</span>
-            </div>
-            
-            <!-- Chart Container -->
-            <div class="bg-slate-950 rounded-xl border border-slate-900 p-1 space-y-1 relative">
-                <!-- Main Candlestick Chart Window -->
-                <div id="mainChart" class="w-full h-[240px]"></div>
-                <!-- Sub-window VBox Histogram -->
-                <div id="vboxChart" class="w-full h-[120px] border-t border-slate-900"></div>
-                
-                <!-- Chart Loader Overlay -->
-                <div id="chartLoader" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-10 transition-opacity duration-300">
-                    <div class="flex flex-col items-center gap-2">
-                        <i class="fa-solid fa-circle-notch animate-spin text-accentBlue text-2xl"></i>
-                        <span class="text-xs text-slate-400">Memproses Grafik...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <script>
+    // Konfigurasi API
+    const apiKey = "8cd5e84fa4564322b907aaddac29b059";
+    let currentSymbol = "GBP/USD";
+    let currentTF = "h1";
 
-        <!-- Indicator 1: Kekuatan (SBC Body Strength Percentage) -->
-        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-4 shadow-md">
-            <div class="flex items-center gap-2 mb-3">
-                <i class="fa-solid fa-gauge-high text-indigo-400"></i>
-                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Kekuatan (SBC Body Strength)</h3>
-            </div>
-            
-            <div class="space-y-3">
-                <div class="flex justify-between text-xs font-semibold">
-                    <span class="text-bullGreen">BUY: <span id="sbcBuyPct">-</span>%</span>
-                    <span class="text-bearRed">SELL: <span id="sbcSellPct">-</span>%</span>
-                </div>
-                <div class="h-3.5 w-full bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
-                    <div id="sbcBuyBar" class="h-full bg-bullGreen rounded-l-full transition-all duration-500" style="width: 50%"></div>
-                    <div id="sbcSellBar" class="h-full bg-bearRed rounded-r-full transition-all duration-500" style="width: 50%"></div>
-                </div>
-                <p class="text-[11px] text-slate-400 italic">Analisis total ukuran badan candle naik vs turun dalam 24 bar terakhir.</p>
-            </div>
-        </div>
+    // Mapping timeframe ke interval Twelve Data
+    const tfIntervalMap = {
+      "h1": "1h",
+      "h4": "4h",
+      "d1": "1day"
+    };
 
-        <!-- Indicator Details Breakdown -->
-        <div class="bg-cardBg rounded-2xl border border-slate-800/80 p-4 shadow-md space-y-3">
-            <div class="flex items-center gap-2 border-b border-slate-800/60 pb-2">
-                <i class="fa-solid fa-circle-info text-amber-400"></i>
-                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Metrik Detail</h3>
-            </div>
+    // State Penyimpanan Data
+    let rawData = [];
+    let indicators = {};
+    let hoverIndex = null;
 
-            <!-- VBox Stats -->
-            <div class="flex justify-between items-center text-xs bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
-                <span class="text-slate-400">Nilai VBox (Lookback 14):</span>
-                <div class="flex items-center gap-2">
-                    <span id="vboxValueLabel" class="font-mono font-bold">-</span>
-                    <span id="vboxStatusLabel" class="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">-</span>
-                </div>
-            </div>
+    // Batas visualisasi lilin yang ditampilkan di layar
+    const visibleBarsCount = 55;
 
-            <!-- EMA Ribbon Trend Status -->
-            <div class="flex justify-between items-center text-xs bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
-                <span class="text-slate-400">Arah Ribbon (EMA 12/26):</span>
-                <span id="ribbonStatus" class="text-xs font-bold px-2.5 py-0.5 rounded-full">-</span>
-            </div>
+    // Referensi Canvas
+    const chartCanvas = document.getElementById('chartCanvas');
+    const percentageCanvas = document.getElementById('percentageCanvas');
+    const histogramCanvas = document.getElementById('histogramCanvas');
+    const infoPanel = document.getElementById('infoPanel');
+    const dataSourceBadge = document.getElementById('dataSourceBadge');
 
-            <!-- Outer Bands values -->
-            <div class="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div class="bg-slate-950/20 p-2 rounded border border-slate-800/40">
-                    <div class="text-slate-500 text-[9px]">UPPER BAND</div>
-                    <div id="upperBandVal" class="text-slate-200 mt-0.5">-</div>
-                </div>
-                <div class="bg-slate-950/20 p-2 rounded border border-slate-800/40">
-                    <div class="text-slate-500 text-[9px]">LOWER BAND</div>
-                    <div id="lowerBandVal" class="text-slate-200 mt-0.5">-</div>
-                </div>
-            </div>
-        </div>
+    // Inisialisasi Event Listener
+    document.getElementById('tfGroup').addEventListener('click', (e) => {
+      if (e.target.classList.contains('btn')) {
+        document.querySelector('#tfGroup .btn.active').classList.remove('active');
+        e.target.classList.add('active');
+        currentTF = e.target.dataset.tf;
+        updateDashboard();
+      }
+    });
 
-    </main>
+    document.getElementById('symbolGroup').addEventListener('click', (e) => {
+      if (e.target.classList.contains('btn')) {
+        document.querySelector('#symbolGroup .btn.active').classList.remove('active');
+        e.target.classList.add('active');
+        currentSymbol = e.target.dataset.symbol;
+        updateDashboard();
+      }
+    });
 
-    <!-- JS Logic -->
-    <script>
-        const API_KEY = '8cd5e84fa4564322b907aaddac29b059';
-        let currentAsset = 'GBP/USD';
+    // Menangani sinkronisasi crosshair gerakan mouse di seluruh canvas
+    [chartCanvas, percentageCanvas, histogramCanvas].forEach(canvas => {
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const drawWidth = rect.width - 60; // Mengabaikan margin kanan untuk label harga
+        const barWidth = drawWidth / visibleBarsCount;
         
-        const cacheStore = {
-            'GBP/USD': { data: null, timestamp: 0 },
-            'EUR/USD': { data: null, timestamp: 0 }
+        let index = Math.floor(x / barWidth);
+        if (index >= 0 && index < visibleBarsCount) {
+          hoverIndex = index;
+          drawAll();
+          updateInfoText();
+        }
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        hoverIndex = null;
+        drawAll();
+        infoPanel.innerHTML = "Arahkan kursor pada grafik untuk melihat data teknikal terperinci.";
+      });
+    });
+
+    // Siklus Pemuatan Utama
+    async function updateDashboard() {
+      const statusOverlay = document.getElementById('chartStatus');
+      statusOverlay.style.display = 'flex';
+      statusOverlay.textContent = 'Memuat data dari API...';
+
+      try {
+        const interval = tfIntervalMap[currentTF];
+        rawData = await fetchTwelveData(currentSymbol, interval);
+        dataSourceBadge.textContent = "API AKTIF";
+        dataSourceBadge.style.backgroundColor = "#2ecc71";
+      } catch (err) {
+        console.warn("Kesalahan API, menggunakan data simulasi lokal:", err.message);
+        rawData = generateFallbackData(currentSymbol, currentTF);
+        dataSourceBadge.textContent = "SIMULASI OFFLINE";
+        dataSourceBadge.style.backgroundColor = "#e74c3c";
+      }
+
+      statusOverlay.style.display = 'none';
+      calculateIndicators();
+      drawAll();
+    }
+
+    // Fungsi Fetch ke Twelve Data
+    async function fetchTwelveData(symbol, interval) {
+      const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&apikey=${apiKey}&outputsize=150`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Koneksi gagal");
+      const json = await response.json();
+      if (json.status === "error") throw new Error(json.message);
+      
+      // Susun agar urutan indeks dari lama ke baru (kronologis)
+      const values = json.values;
+      values.reverse();
+      return values;
+    }
+
+    // Pembuat Data Pengganti (Fallback) jika Limit API Tercapai
+    function generateFallbackData(symbol, tf) {
+      const mockValues = [];
+      let basePrice = symbol === "GBP/USD" ? 1.2550 : 1.0850;
+      let timestamp = Date.now() - 150 * 24 * 3600 * 1000;
+      const step = tf === "h1" ? 3600000 : tf === "h4" ? 14400000 : 86400000;
+
+      for (let i = 0; i < 150; i++) {
+        const change = (Math.random() - 0.495) * (basePrice * 0.003);
+        const open = basePrice;
+        const close = basePrice + change;
+        const high = Math.max(open, close) + Math.random() * (basePrice * 0.0015);
+        const low = Math.min(open, close) - Math.random() * (basePrice * 0.0015);
+        basePrice = close;
+        timestamp += step;
+
+        mockValues.push({
+          datetime: new Date(timestamp).toISOString().slice(0, 16).replace('T', ' '),
+          open: open.toFixed(5),
+          high: high.toFixed(5),
+          low: low.toFixed(5),
+          close: close.toFixed(5)
+        });
+      }
+      return mockValues;
+    }
+
+    // Sektor Perhitungan Indikator (Konversi Logika MQL4)
+    function calculateIndicators() {
+      const N = rawData.length;
+      
+      // 1. EMA (Formula Exponential Moving Average)
+      const calcEMA = (period) => {
+        const ema = new Array(N).fill(null);
+        const k = 2 / (period + 1);
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += Number(rawData[i].close);
+        let prevEma = sum / period;
+        ema[period - 1] = prevEma;
+        for (let i = period; i < N; i++) {
+          ema[i] = Number(rawData[i].close) * k + prevEma * (1 - k);
+          prevEma = ema[i];
+        }
+        return ema;
+      };
+
+      // 2. LWMA (Formula Linear Weighted Moving Average)
+      const calcLWMA = (period) => {
+        const lwma = new Array(N).fill(null);
+        const weightSum = (period * (period + 1)) / 2;
+        for (let i = period - 1; i < N; i++) {
+          let sum = 0;
+          for (let j = 0; j < period; j++) {
+            sum += Number(rawData[i - period + 1 + j].close) * (j + 1);
+          }
+          lwma[i] = sum / weightSum;
+        }
+        return lwma;
+      };
+
+      // 3. ATR (Average True Range)
+      const tr = new Array(N).fill(0);
+      for (let i = 1; i < N; i++) {
+        const h = Number(rawData[i].high);
+        const l = Number(rawData[i].low);
+        const pc = Number(rawData[i - 1].close);
+        tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+      }
+      const atr = new Array(N).fill(null);
+      const atrPeriod = 14;
+      let atrSum = 0;
+      for (let i = 1; i <= atrPeriod; i++) atrSum += tr[i];
+      let prevAtr = atrSum / atrPeriod;
+      atr[atrPeriod] = prevAtr;
+      const alpha = 1 / atrPeriod;
+      for (let i = atrPeriod + 1; i < N; i++) {
+        atr[i] = tr[i] * alpha + prevAtr * (1 - alpha);
+        prevAtr = atr[i];
+      }
+
+      // Hitung Komponen Indikator Utama
+      const lwma50 = calcLWMA(50);
+      const ema12 = calcEMA(12);
+      const ema26 = calcEMA(26);
+
+      const upperBand = new Array(N).fill(null);
+      const lowerBand = new Array(N).fill(null);
+      for (let i = 0; i < N; i++) {
+        if (lwma50[i] !== null && atr[i] !== null) {
+          upperBand[i] = lwma50[i] + atr[i] * 2.5;
+          lowerBand[i] = lwma50[i] - atr[i] * 2.5;
+        }
+      }
+
+      // Logika Swing & Sinyal Gir Non-Repaint
+      const buySignals = new Array(N).fill(null);
+      const sellSignals = new Array(N).fill(null);
+      const pipSize = currentSymbol.includes("JPY") ? 0.01 : 0.0001;
+
+      for (let i = 2; i < N - 1; i++) {
+        const low = Number(rawData[i].low);
+        const high = Number(rawData[i].high);
+        const lowPrev = Number(rawData[i - 1].low);
+        const lowNext = Number(rawData[i + 1].low);
+        const highPrev = Number(rawData[i - 1].high);
+        const highNext = Number(rawData[i + 1].high);
+
+        if (lowerBand[i] !== null) {
+          if (low < lowPrev && low < lowNext) {
+            if (low <= lowerBand[i] + 5 * pipSize) {
+              buySignals[i] = low - 12 * pipSize;
+            }
+          }
+        }
+        if (upperBand[i] !== null) {
+          if (high > highPrev && high > highNext) {
+            if (high >= upperBand[i] - 5 * pipSize) {
+              sellSignals[i] = high + 12 * pipSize;
+            }
+          }
+        }
+      }
+
+      // 4. Perhitungan VBox Histogram Sub-Window
+      const vboxRaw = new Array(N).fill(50);
+      const lookback = 14;
+      for (let i = lookback - 1; i < N; i++) {
+        let hh = Number(rawData[i].high);
+        let ll = Number(rawData[i].low);
+        for (let k = 1; k < lookback; k++) {
+          hh = Math.max(hh, Number(rawData[i - k].high));
+          ll = Math.min(ll, Number(rawData[i - k].low));
+        }
+        const range = hh - ll;
+        vboxRaw[i] = range > 0 ? ((Number(rawData[i].close) - ll) / range) * 100 : 50;
+      }
+
+      const vboxHist = new Array(N).fill(null);
+      const smooth = 3;
+      for (let i = lookback + smooth - 2; i < N; i++) {
+        let sum = 0;
+        for (let s = 0; s < smooth; s++) sum += vboxRaw[i - s];
+        vboxHist[i] = sum / smooth;
+      }
+
+      indicators = {
+        upperBand, lowerBand, ema12, ema26, buySignals, sellSignals, vboxHist
+      };
+    }
+
+    // Fungsi Render Gambar Semua Canvas
+    function drawAll() {
+      // Pastikan kerapatan piksel monitor tinggi (High DPI) agar hasil rendering tajam
+      const getCtx = (canvas) => {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        return { ctx, w: rect.width, h: rect.height };
+      };
+
+      const chart = getCtx(chartCanvas);
+      const percent = getCtx(percentageCanvas);
+      const hist = getCtx(histogramCanvas);
+
+      // Slicing data khusus 55 bar terakhir untuk ditampilkan secara presisi
+      const sliceStart = rawData.length - visibleBarsCount;
+      const visibleData = rawData.slice(sliceStart);
+      const vUpper = indicators.upperBand.slice(sliceStart);
+      const vLower = indicators.lowerBand.slice(sliceStart);
+      const vEma12 = indicators.ema12.slice(sliceStart);
+      const vEma26 = indicators.ema26.slice(sliceStart);
+      const vBuyS = indicators.buySignals.slice(sliceStart);
+      const vSellS = indicators.sellSignals.slice(sliceStart);
+      const vHist = indicators.vboxHist.slice(sliceStart);
+
+      const drawWidth = chart.w - 60; // sisa 60px dikanan untuk label harga/skala
+
+      // ==========================================
+      // DRAW CANVAS 1: CHANEL INDIKATOR (Chart)
+      // ==========================================
+      const drawChart = () => {
+        // Cari nilai maks & min untuk proses normalisasi skala Y
+        let minVal = Infinity, maxVal = -Infinity;
+        for (let i = 0; i < visibleBarsCount; i++) {
+          const l = Number(visibleData[i].low);
+          const h = Number(visibleData[i].high);
+          minVal = Math.min(minVal, l, vLower[i] || l);
+          maxVal = Math.max(maxVal, h, vUpper[i] || h);
+        }
+        const padding = (maxVal - minVal) * 0.08;
+        minVal -= padding;
+        maxVal += padding;
+
+        const getY = (val) => chart.h - ((val - minVal) / (maxVal - minVal)) * chart.h;
+        const barW = drawWidth / visibleBarsCount;
+
+        // Gambar Grid & Skala Harga Kanan
+        chart.ctx.strokeStyle = '#e0e0e0';
+        chart.ctx.lineWidth = 1;
+        for (let i = 1; i < 5; i++) {
+          const y = (chart.h / 5) * i;
+          chart.ctx.beginPath();
+          chart.ctx.moveTo(0, y);
+          chart.ctx.lineTo(chart.w, y);
+          chart.ctx.stroke();
+
+          // Skala label harga dikanan
+          const priceVal = maxVal - ((maxVal - minVal) / 5) * i;
+          chart.ctx.fillStyle = '#666666';
+          chart.ctx.font = '10px Courier New';
+          chart.ctx.fillText(priceVal.toFixed(5), drawWidth + 5, y + 3);
+        }
+
+        // Jalankan render Ribbon EMA 12 vs EMA 26 (Arsiran Transparan)
+        for (let i = 0; i < visibleBarsCount; i++) {
+          if (vEma12[i] !== null && vEma26[i] !== null) {
+            const x = i * barW + barW / 2;
+            const y12 = getY(vEma12[i]);
+            const y26 = getY(vEma26[i]);
+            chart.ctx.beginPath();
+            chart.ctx.moveTo(x, y12);
+            chart.ctx.lineTo(x, y26);
+            chart.ctx.strokeStyle = vEma12[i] > vEma26[i] ? 'rgba(46, 204, 113, 0.25)' : 'rgba(231, 76, 60, 0.25)';
+            chart.ctx.lineWidth = barW;
+            chart.ctx.stroke();
+          }
+        }
+
+        // Gambar Batas Saluran Atas & Bawah (Bands)
+        const drawLine = (array, color) => {
+          chart.ctx.beginPath();
+          let started = false;
+          for (let i = 0; i < visibleBarsCount; i++) {
+            if (array[i] !== null) {
+              const x = i * barW + barW / 2;
+              const y = getY(array[i]);
+              if (!started) {
+                chart.ctx.moveTo(x, y);
+                started = true;
+              } else {
+                chart.ctx.lineTo(x, y);
+              }
+            }
+          }
+          chart.ctx.strokeStyle = color;
+          chart.ctx.lineWidth = 2.5;
+          chart.ctx.stroke();
         };
-        const CACHE_DURATION = 60000; // 1 Menit cache
+        drawLine(vUpper, '#ff4500'); // Batas Atas (OrangeRed)
+        drawLine(vLower, '#32cd32'); // Batas Bawah (LimeGreen)
 
-        // TradingView Lightweight Charts Instances
-        let mainChart, vboxChart;
-        let candleSeries, upperBandSeries, lowerBandSeries, fastEmaSeries, slowEmaSeries, vboxHistogramSeries;
+        // Gambar Candlestick Harga
+        for (let i = 0; i < visibleBarsCount; i++) {
+          const o = Number(visibleData[i].open);
+          const h = Number(visibleData[i].high);
+          const l = Number(visibleData[i].low);
+          const c = Number(visibleData[i].close);
+          const x = i * barW + barW / 2;
 
-        // FUNGSI PERBAIKAN: Parser tanggal manual tahan-error untuk semua peramban seluler (iOS/Android)
-        function parseDateTimeToUnix(datetimeStr) {
-            try {
-                // Format input: "YYYY-MM-DD HH:MM:SS" (cth: "2026-06-16 20:00:00")
-                const parts = datetimeStr.split(' ');
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(':');
-                
-                const year = parseInt(dateParts[0], 10);
-                const month = parseInt(dateParts[1], 10) - 1;
-                const day = parseInt(dateParts[2], 10);
-                const hour = parseInt(timeParts[0], 10);
-                const minute = parseInt(timeParts[1], 10);
-                const second = parseInt(timeParts[2], 10);
-                
-                // Membuat objek waktu lokal yang aman secara eksplisit
-                const localDate = new Date(year, month, day, hour, minute, second);
-                const unixSecs = Math.floor(localDate.getTime() / 1000);
-                
-                return isNaN(unixSecs) ? null : unixSecs;
-            } catch (e) {
-                console.error("Error parsing date: ", datetimeStr, e);
-                return null;
-            }
+          const isBull = c >= o;
+          chart.ctx.strokeStyle = '#000000';
+          chart.ctx.lineWidth = 1.5;
+
+          // Wick
+          chart.ctx.beginPath();
+          chart.ctx.moveTo(x, getY(h));
+          chart.ctx.lineTo(x, getY(l));
+          chart.ctx.stroke();
+
+          // Body Candle
+          chart.ctx.fillStyle = isBull ? '#2ecc71' : '#e74c3c';
+          chart.ctx.beginPath();
+          chart.ctx.rect(x - barW * 0.35, getY(Math.max(o, c)), barW * 0.7, Math.abs(getY(o) - getY(c)) || 1.5);
+          chart.ctx.fill();
+          chart.ctx.stroke();
         }
 
-        // Tampilkan Banner Error jika koneksi/API bermasalah
-        function showError(msg) {
-            const banner = document.getElementById('errorBanner');
-            const msgEl = document.getElementById('errorMsg');
-            if (msg) {
-                msgEl.innerText = msg;
-                banner.classList.remove('hidden');
-            } else {
-                banner.classList.add('hidden');
-            }
+        // Gambar Sinyal Gir (Gear Signal)
+        const drawGear = (cx, cy, size, col) => {
+          chart.ctx.save();
+          chart.ctx.translate(cx, cy);
+          chart.ctx.strokeStyle = col;
+          chart.ctx.fillStyle = col;
+          chart.ctx.lineWidth = 1.5;
+          chart.ctx.beginPath();
+          chart.ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+          chart.ctx.stroke();
+          const teeth = 8;
+          for (let k = 0; k < teeth; k++) {
+            chart.ctx.rotate(Math.PI / (teeth / 2));
+            chart.ctx.fillRect(-size * 0.08, -size * 0.55, size * 0.16, size * 0.25);
+          }
+          chart.ctx.restore();
+        };
+
+        for (let i = 0; i < visibleBarsCount; i++) {
+          const barW = drawWidth / visibleBarsCount;
+          const x = i * barW + barW / 2;
+          if (vBuyS[i] !== null) drawGear(x, getY(vBuyS[i]), barW * 1.1, '#32cd32');
+          if (vSellS[i] !== null) drawGear(x, getY(vSellS[i]), barW * 1.1, '#e74c3c');
         }
 
-        // Inisialisasi visual canvas chart
-        function initCharts() {
-            if (typeof LightweightCharts === 'undefined') {
-                showError("Gagal memuat visual grafik. Periksa koneksi internet.");
-                return;
-            }
+        // Hover Crosshair
+        if (hoverIndex !== null) {
+          const hX = hoverIndex * barW + barW / 2;
+          chart.ctx.strokeStyle = '#95a5a6';
+          chart.ctx.setLineDash([4, 4]);
+          chart.ctx.lineWidth = 1;
+          chart.ctx.beginPath();
+          chart.ctx.moveTo(hX, 0);
+          chart.ctx.lineTo(hX, chart.h);
+          chart.ctx.stroke();
+          chart.ctx.setLineDash([]);
+        }
+      };
 
-            const mainContainer = document.getElementById('mainChart');
-            const vboxContainer = document.getElementById('vboxChart');
+      // ==========================================
+      // DRAW CANVAS 2: PROSENTASE INDIKATOR (Kekuatan)
+      // ==========================================
+      const drawPercentage = () => {
+        // Blok-pembagi harian (24 bar untuk H1)
+        const blockSize = currentTF === "h1" ? 24 : 10;
+        const blocks = [];
+        let curBlock = [];
 
-            mainContainer.innerHTML = '';
-            vboxContainer.innerHTML = '';
+        for (let i = 0; i < visibleBarsCount; i++) {
+          curBlock.push({ index: i, val: visibleData[i] });
+          if (curBlock.length === blockSize || i === visibleBarsCount - 1) {
+            blocks.push(curBlock);
+            curBlock = [];
+          }
+        }
 
-            const commonOptions = {
-                layout: {
-                    background: { type: 'solid', color: '#090d16' },
-                    textColor: '#94a3b8',
-                },
-                grid: {
-                    vertLines: { color: '#131924' },
-                    horzLines: { color: '#131924' },
-                },
-                rightPriceScale: {
-                    borderColor: '#1e293b',
-                    scaleMargins: { top: 0.1, bottom: 0.1 },
-                },
-                timeScale: {
-                    borderColor: '#1e293b',
-                    timeVisible: true,
-                    secondsVisible: false,
-                },
-                handleScale: { mouseWheel: true, pinchGesture: true },
-                handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-                crosshair: { mode: 0 }
+        const barW = drawWidth / visibleBarsCount;
+
+        // Background dan Grid Pembatas Blok
+        percent.ctx.strokeStyle = '#cccccc';
+        percent.ctx.setLineDash([3, 3]);
+        percent.ctx.lineWidth = 1;
+
+        // Garis Tengah Grid pembatas buy/sell
+        percent.ctx.beginPath();
+        percent.ctx.moveTo(0, percent.h / 2);
+        percent.ctx.lineTo(drawWidth, percent.h / 2);
+        percent.ctx.stroke();
+
+        blocks.forEach((blk, idx) => {
+          const startX = blk[0].index * barW;
+          const endX = (blk[blk.length - 1].index + 1) * barW;
+
+          // Garis Vertikal pembatas blok
+          if (idx > 0) {
+            percent.ctx.beginPath();
+            percent.ctx.moveTo(startX, 0);
+            percent.ctx.lineTo(startX, percent.h);
+            percent.ctx.stroke();
+          }
+
+          // Kalkulasi volume badan lilin (Kekuatan Buy vs Sell)
+          let sumBuy = 0, sumSell = 0;
+          blk.forEach(b => {
+            const o = Number(b.val.open);
+            const c = Number(b.val.close);
+            if (c > o) sumBuy += (c - o);
+            else if (c < o) sumSell += (o - c);
+          });
+
+          const total = sumBuy + sumSell;
+          let buyPct = 50, sellPct = 50;
+          if (total > 0) {
+            buyPct = Math.round((sumBuy / total) * 100);
+            sellPct = Math.round((sumSell / total) * 100);
+          }
+
+          // Gambar visualisasi persentase teks
+          const midX = startX + (endX - startX) / 2;
+          percent.ctx.setLineDash([]);
+          percent.ctx.textAlign = 'center';
+          percent.ctx.font = 'bold 12px Courier New';
+
+          // Teks Sell (Atas)
+          percent.ctx.fillStyle = '#d35400';
+          percent.ctx.fillText(`sell ${sellPct} %`, midX, percent.h * 0.35);
+
+          // Teks Buy (Bawah)
+          percent.ctx.fillStyle = '#1e824c';
+          percent.ctx.fillText(`buy ${buyPct} %`, midX, percent.h * 0.72);
+        });
+
+        // Hover Crosshair
+        if (hoverIndex !== null) {
+          const hX = hoverIndex * barW + barW / 2;
+          percent.ctx.strokeStyle = '#95a5a6';
+          percent.ctx.setLineDash([4, 4]);
+          percent.ctx.beginPath();
+          percent.ctx.moveTo(hX, 0);
+          percent.ctx.lineTo(hX, percent.h);
+          percent.ctx.stroke();
+          percent.ctx.setLineDash([]);
+        }
+      };
+
+      // ==========================================
+      // DRAW CANVAS 3: HISTOGRAM INDIKATOR
+      // ==========================================
+      const drawHistogram = () => {
+        const barW = drawWidth / visibleBarsCount;
+        const getY = (val) => hist.h - (val / 100) * hist.h;
+
+        // Batas Referensi Level 15 (Aqua) dan 85 (Gold)
+        hist.ctx.strokeStyle = '#00ced1'; // Aqua line 15
+        hist.ctx.setLineDash([4, 4]);
+        hist.ctx.beginPath();
+        hist.ctx.moveTo(0, getY(15));
+        hist.ctx.lineTo(drawWidth, getY(15));
+        hist.ctx.stroke();
+
+        hist.ctx.strokeStyle = '#ffb300'; // Gold line 85
+        hist.ctx.beginPath();
+        hist.ctx.moveTo(0, getY(85));
+        hist.ctx.lineTo(drawWidth, getY(85));
+        hist.ctx.stroke();
+        hist.ctx.setLineDash([]);
+
+        // Gambar Histogram VBox
+        for (let i = 0; i < visibleBarsCount; i++) {
+          if (vHist[i] !== null) {
+            const x = i * barW + barW / 2;
+            const hVal = vHist[i];
+            const y = getY(hVal);
+
+            const isBull = Number(visibleData[i].close) >= Number(visibleData[i].open);
+            hist.ctx.fillStyle = isBull ? '#3498db' : '#e91e63'; // DodgerBlue vs DeepPink
+
+            hist.ctx.fillRect(x - barW * 0.3, y, barW * 0.6, hist.h - y);
+
+            // Panah Sinyal Sub-Window
+            const drawArrow = (ax, ay, isUp, color) => {
+              hist.ctx.fillStyle = color;
+              hist.ctx.beginPath();
+              if (isUp) {
+                hist.ctx.moveTo(ax, ay);
+                hist.ctx.lineTo(ax - 4, ay + 7);
+                hist.ctx.lineTo(ax - 1.5, ay + 7);
+                hist.ctx.lineTo(ax - 1.5, ay + 13);
+                hist.ctx.lineTo(ax + 1.5, ay + 13);
+                hist.ctx.lineTo(ax + 1.5, ay + 7);
+                hist.ctx.lineTo(ax + 4, ay + 7);
+              } else {
+                hist.ctx.moveTo(ax, ay);
+                hist.ctx.lineTo(ax - 4, ay - 7);
+                hist.ctx.lineTo(ax - 1.5, ay - 7);
+                hist.ctx.lineTo(ax - 1.5, ay - 13);
+                hist.ctx.lineTo(ax + 1.5, ay - 13);
+                hist.ctx.lineTo(ax + 1.5, ay - 7);
+                hist.ctx.lineTo(ax + 4, ay - 7);
+              }
+              hist.ctx.closePath();
+              hist.ctx.fill();
             };
 
-            // Main Chart: Candlestick + Bands
-            mainChart = LightweightCharts.createChart(mainContainer, {
-                ...commonOptions,
-                height: 240,
-            });
-
-            candleSeries = mainChart.addCandlestickSeries({
-                upColor: '#10b981',
-                downColor: '#ef4444',
-                borderVisible: false,
-                wickUpColor: '#10b981',
-                wickDownColor: '#ef4444',
-            });
-
-            upperBandSeries = mainChart.addLineSeries({
-                color: '#ef4444', // OrangeRed
-                lineWidth: 1.5,
-                title: 'Upper Band',
-            });
-
-            lowerBandSeries = mainChart.addLineSeries({
-                color: '#10b981', // LimeGreen
-                lineWidth: 1.5,
-                title: 'Lower Band',
-            });
-
-            fastEmaSeries = mainChart.addLineSeries({
-                color: '#00fa9a',
-                lineWidth: 1,
-                lineStyle: 2, // Dashed
-            });
-
-            slowEmaSeries = mainChart.addLineSeries({
-                color: '#ff6347',
-                lineWidth: 1,
-                lineStyle: 2, // Dashed
-            });
-
-            // Sub-chart: VBox Histogram
-            vboxChart = LightweightCharts.createChart(vboxContainer, {
-                ...commonOptions,
-                height: 120,
-                timeScale: {
-                    ...commonOptions.timeScale,
-                    visible: false, // Sembunyikan garis waktu pada sub-chart agar rapi
-                }
-            });
-
-            vboxHistogramSeries = vboxChart.addHistogramSeries({
-                base: 50, // Base histogram tengah
-            });
-
-            // Set referensi garis horizontal statis 15 dan 85
-            vboxHistogramSeries.createPriceLine({
-                price: 15,
-                color: '#00ffff',
-                lineWidth: 1,
-                lineStyle: 2,
-                title: 'L:15',
-            });
-
-            vboxHistogramSeries.createPriceLine({
-                price: 85,
-                color: '#ffd700',
-                lineWidth: 1,
-                lineStyle: 2,
-                title: 'H:85',
-            });
-
-            // Sinkronisasi horizontal scroll dan zoom antar kedua grafik
-            let isSyncing = false;
-            mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                if (isSyncing) return;
-                isSyncing = true;
-                vboxChart.timeScale().setVisibleLogicalRange(range);
-                isSyncing = false;
-            });
-
-            vboxChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                if (isSyncing) return;
-                isSyncing = true;
-                mainChart.timeScale().setVisibleLogicalRange(range);
-                isSyncing = false;
-            });
+            if (hVal < 15) {
+              drawArrow(x, hist.h - 15, true, '#000000'); // Arrow Up
+            } else if (hVal >= 85) {
+              drawArrow(x, 15, false, '#ff1493'); // Arrow Down
+            }
+          }
         }
 
-        function updateUIState(loading) {
-            const refreshIcon = document.getElementById('refreshIcon');
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            const chartLoader = document.getElementById('chartLoader');
-
-            if (loading) {
-                refreshIcon.classList.add('animate-spin');
-                statusIndicator.className = "h-2 w-2 rounded-full bg-amber-500 animate-pulse";
-                statusText.innerText = "Fetching...";
-                chartLoader.classList.remove('opacity-0', 'pointer-events-none');
-            } else {
-                refreshIcon.classList.remove('animate-spin');
-                statusIndicator.className = "h-2 w-2 rounded-full bg-emerald-500";
-                statusText.innerText = "Ready";
-                chartLoader.classList.add('opacity-0', 'pointer-events-none');
-            }
+        // Hover Crosshair
+        if (hoverIndex !== null) {
+          const hX = hoverIndex * barW + barW / 2;
+          hist.ctx.strokeStyle = '#95a5a6';
+          hist.ctx.setLineDash([4, 4]);
+          hist.ctx.beginPath();
+          hist.ctx.moveTo(hX, 0);
+          hist.ctx.lineTo(hX, hist.h);
+          hist.ctx.stroke();
+          hist.ctx.setLineDash([]);
         }
+      };
 
-        function switchAsset(asset) {
-            if (currentAsset === asset) return;
-            currentAsset = asset;
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = "tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 text-slate-400 hover:text-slate-200";
-            });
-            const activeBtn = document.getElementById(`btn-${asset.replace('/', '')}`);
-            activeBtn.className = "tab-btn py-2.5 px-4 rounded-lg font-bold text-sm transition-all duration-200 bg-accentBlue text-white shadow-md";
+      // Eksekusi render ketiga canvas
+      drawChart();
+      drawPercentage();
+      drawHistogram();
+    }
 
-            document.getElementById('assetLabel').innerText = asset;
-            fetchData();
-        }
+    // Fungsi Pengatur Teks Informasi (Interaktif Hover)
+    function updateInfoText() {
+      if (hoverIndex === null) return;
+      const sliceStart = rawData.length - visibleBarsCount;
+      const index = sliceStart + hoverIndex;
+      const data = rawData[index];
 
-        async function fetchData(force = false) {
-            updateUIState(true);
-            showError(null);
-            const now = Date.now();
-            
-            if (!force && cacheStore[currentAsset].data && (now - cacheStore[currentAsset].timestamp < CACHE_DURATION)) {
-                processAndDisplay(cacheStore[currentAsset].data);
-                updateUIState(false);
-                return;
-            }
+      const c = Number(data.close).toFixed(5);
+      const o = Number(data.open).toFixed(5);
+      const h = Number(data.high).toFixed(5);
+      const l = Number(data.low).toFixed(5);
 
-            try {
-                // Menggunakan outputsize=150 untuk memastikan data historis cukup untuk perhitungan LWMA 50
-                const url = `https://api.twelvedata.com/time_series?symbol=${currentAsset}&interval=1h&outputsize=150&apikey=${API_KEY}`;
-                const response = await fetch(url);
-                const result = await response.json();
+      const upper = indicators.upperBand[index] ? indicators.upperBand[index].toFixed(5) : "N/A";
+      const lower = indicators.lowerBand[index] ? indicators.lowerBand[index].toFixed(5) : "N/A";
+      const vbox = indicators.vboxHist[index] ? indicators.vboxHist[index].toFixed(1) : "N/A";
 
-                if (result.status === 'error') {
-                    showError('Error API: ' + result.message);
-                    updateUIState(false);
-                    return;
-                }
+      infoPanel.innerHTML = `
+        <strong>Tanggal:</strong> ${data.datetime} | 
+        <strong>OHLC:</strong> O:${o} H:${h} L:${l} C:${c} <br/>
+        <strong>Upper Band:</strong> ${upper} | 
+        <strong>Lower Band:</strong> ${lower} | 
+        <strong>VBox Hist:</strong> ${vbox}
+      `;
+    }
 
-                if (result.values && result.values.length > 0) {
-                    const seenTimes = new Set();
-                    const processedData = [];
-                    const reversedValues = [...result.values].reverse();
+    // Eksekusi Pemuatan Awal Saat Halaman Dibuka
+    updateDashboard();
 
-                    for (const item of reversedValues) {
-                        const timeInSecs = parseDateTimeToUnix(item.datetime);
-                        if (!timeInSecs || seenTimes.has(timeInSecs)) continue;
-                        seenTimes.add(timeInSecs);
-
-                        processedData.push({
-                            time: timeInSecs,
-                            datetime: item.datetime,
-                            open: parseFloat(item.open),
-                            high: parseFloat(item.high),
-                            low: parseFloat(item.low),
-                            close: parseFloat(item.close)
-                        });
-                    }
-
-                    if (processedData.length < 50) {
-                        showError("Data dari API terlalu sedikit untuk analisis indicator (Minimal 50).");
-                        updateUIState(false);
-                        return;
-                    }
-
-                    cacheStore[currentAsset].data = processedData;
-                    cacheStore[currentAsset].timestamp = now;
-                    processAndDisplay(processedData);
-                } else {
-                    showError("API mengembalikan data kosong. Coba muat ulang.");
-                }
-            } catch (error) {
-                console.error("Gagal memproses data:", error);
-                showError("Gagal terhubung dengan server API. Periksa jaringan Anda.");
-            }
-            updateUIState(false);
-        }
-
-        // ================= MATHEMATICAL CALCULATIONS =================
-
-        function calcEMA(data, period) {
-            const k = 2 / (period + 1);
-            const ema = new Array(data.length).fill(0);
-            let sum = 0;
-            for (let i = 0; i < period; i++) sum += data[i].close;
-            ema[period - 1] = sum / period;
-            for (let i = period; i < data.length; i++) {
-                ema[i] = data[i].close * k + ema[i - 1] * (1 - k);
-            }
-            return ema;
-        }
-
-        function calcLWMA(data, period) {
-            const lwma = new Array(data.length).fill(0);
-            const weightSum = (period * (period + 1)) / 2;
-            for (let i = period - 1; i < data.length; i++) {
-                let sum = 0;
-                for (let j = 0; j < period; j++) {
-                    sum += data[i - j].close * (period - j);
-                }
-                lwma[i] = sum / weightSum;
-            }
-            return lwma;
-        }
-
-        function calcATR(data, period) {
-            const atr = new Array(data.length).fill(0);
-            const tr = new Array(data.length).fill(0);
-            for (let i = 1; i < data.length; i++) {
-                const h = data[i].high;
-                const l = data[i].low;
-                const pc = data[i - 1].close;
-                tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
-            }
-            let trSum = 0;
-            for (let i = 1; i <= period; i++) trSum += tr[i];
-            atr[period] = trSum / period;
-            for (let i = period + 1; i < data.length; i++) {
-                atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
-            }
-            return atr;
-        }
-
-        function calcSBCStrength(data) {
-            let totalBuy = 0;
-            let totalSell = 0;
-            const startIdx = Math.max(0, data.length - 24);
-            for (let i = startIdx; i < data.length; i++) {
-                const body = Math.abs(data[i].close - data[i].open);
-                if (data[i].close > data[i].open) {
-                    totalBuy += body;
-                } else if (data[i].close < data[i].open) {
-                    totalSell += body;
-                }
-            }
-            const total = totalBuy + totalSell;
-            if (total > 0) {
-                return {
-                    buy: Math.round((totalBuy / total) * 100),
-                    sell: Math.round((totalSell / total) * 100)
-                };
-            }
-            return { buy: 50, sell: 50 };
-        }
-
-        function calcVBox(data) {
-            const raw = new Array(data.length).fill(50);
-            const lookback = 14;
-            const smooth = 3;
-            
-            for (let i = lookback - 1; i < data.length; i++) {
-                let highestHigh = data[i].high;
-                let lowestLow = data[i].low;
-                for (let k = 1; k < lookback; k++) {
-                    if (data[i - k].high > highestHigh) highestHigh = data[i - k].high;
-                    if (data[i - k].low < lowestLow) lowestLow = data[i - k].low;
-                }
-                const range = highestHigh - lowestLow;
-                raw[i] = range > 0 ? ((data[i].close - lowestLow) / range) * 100 : 50;
-            }
-
-            const smoothed = new Array(data.length).fill(50);
-            for (let i = lookback + smooth - 2; i < data.length; i++) {
-                let sum = 0;
-                for (let s = 0; s < smooth; s++) {
-                    sum += raw[i - s];
-                }
-                smoothed[i] = sum / smooth;
-            }
-            return smoothed;
-        }
-
-        // ================= DISPLAY & ANALYSIS INTERFACES =================
-
-        function processAndDisplay(data) {
-            try {
-                const n = data.length;
-                const latestBar = data[n - 1];
-                
-                // Perbarui visual harga
-                document.getElementById('currentPrice').innerText = latestBar.close.toFixed(5);
-                const priceDirectionIcon = document.getElementById('priceDirectionIcon');
-                priceDirectionIcon.innerHTML = latestBar.close >= latestBar.open ? 
-                    `<i class="fa-solid fa-caret-up text-bullGreen"></i>` : 
-                    `<i class="fa-solid fa-caret-down text-bearRed"></i>`;
-
-                // 1. SBC Strength
-                const strength = calcSBCStrength(data);
-                document.getElementById('sbcBuyPct').innerText = strength.buy;
-                document.getElementById('sbcSellPct').innerText = strength.sell;
-                document.getElementById('sbcBuyBar').style.width = `${strength.buy}%`;
-                document.getElementById('sbcSellBar').style.width = `${strength.sell}%`;
-
-                // 2. VBox Histogram Values
-                const vboxArr = calcVBox(data);
-                const latestVBoxVal = vboxArr[n - 1];
-                document.getElementById('vboxValueLabel').innerText = latestVBoxVal.toFixed(2);
-                
-                const vboxStatusLabel = document.getElementById('vboxStatusLabel');
-                if (latestVBoxVal < 15) {
-                    vboxStatusLabel.innerText = "OVERSOLD";
-                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-bullGreen border border-emerald-850/40";
-                } else if (latestVBoxVal > 85) {
-                    vboxStatusLabel.innerText = "OVERBOUGHT";
-                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-rose-950 text-bearRed border border-rose-850/40";
-                } else {
-                    vboxStatusLabel.innerText = "NORMAL";
-                    vboxStatusLabel.className = "text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/40";
-                }
-
-                // 3. EMA Ribbon & LWMA Channels
-                const ema12 = calcEMA(data, 12);
-                const ema26 = calcEMA(data, 26);
-                const lwma50 = calcLWMA(data, 50);
-                const atr14 = calcATR(data, 14);
-
-                const isBullishRibbon = ema12[n - 1] > ema26[n - 1];
-                const ribbonEl = document.getElementById('ribbonStatus');
-                if (isBullishRibbon) {
-                    ribbonEl.innerText = "BULLISH";
-                    ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-bullGreen border border-emerald-850";
-                } else {
-                    ribbonEl.innerText = "BEARISH";
-                    ribbonEl.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-bearRed border border-rose-850";
-                }
-
-                const currentLWMA = lwma50[n - 1];
-                const currentATR = atr14[n - 1];
-                const upperBand = currentLWMA + (currentATR * 2.5);
-                const lowerBand = currentLWMA - (currentATR * 2.5);
-                document.getElementById('upperBandVal').innerText = upperBand.toFixed(5);
-                document.getElementById('lowerBandVal').innerText = lowerBand.toFixed(5);
-
-                // ================= POPULATE CHART DATA =================
-                const candles = [];
-                const upperBandPoints = [];
-                const lowerBandPoints = [];
-                const fastEmaPoints = [];
-                const slowEmaPoints = [];
-                const vboxHistogramPoints = [];
-                const mainChartMarkers = [];
-
-                const pipSize = 0.0001;
-
-                for (let i = 0; i < n; i++) {
-                    const item = data[i];
-                    const time = item.time; // UNIX Timestamp terjamin aman
-
-                    candles.push({ time, open: item.open, high: item.high, low: item.low, close: item.close });
-
-                    if (i >= 49) {
-                        const centerMA = lwma50[i];
-                        const atr = atr14[i];
-                        const uBand = centerMA + (atr * 2.5);
-                        const lBand = centerMA - (atr * 2.5);
-
-                        upperBandPoints.push({ time, value: uBand });
-                        lowerBandPoints.push({ time, value: lBand });
-
-                        // Logika Swing High/Low untuk Penempatan Sinyal Gear pada Chart (Non-Repaint)
-                        if (i < n - 1) {
-                            const lowCur = item.low;
-                            const lowPrev = data[i - 1].low;
-                            const lowNext = data[i + 1].low;
-                            
-                            const highCur = item.high;
-                            const highPrev = data[i - 1].high;
-                            const highNext = data[i + 1].high;
-
-                            if (lowCur < lowPrev && lowCur < lowNext) {
-                                if (lowCur <= lBand + (5 * pipSize)) {
-                                    mainChartMarkers.push({
-                                        time,
-                                        position: 'belowBar',
-                                        color: '#10b981',
-                                        shape: 'arrowUp',
-                                        text: 'GEAR BUY',
-                                    });
-                                }
-                            }
-
-                            if (highCur > highPrev && highCur > highNext) {
-                                if (highCur >= uBand - (5 * pipSize)) {
-                                    mainChartMarkers.push({
-                                        time,
-                                        position: 'aboveBar',
-                                        color: '#ef4444',
-                                        shape: 'arrowDown',
-                                        text: 'GEAR SELL',
-                                    });
-                                }
-                            }
-                        }
-                    }
-
-                    if (i >= 11) fastEmaPoints.push({ time, value: ema12[i] });
-                    if (i >= 25) slowEmaPoints.push({ time, value: ema26[i] });
-
-                    // VBox Histogram Data Points
-                    if (i >= 15) {
-                        const isBull = item.close >= item.open;
-                        vboxHistogramPoints.push({
-                            time,
-                            value: vboxArr[i],
-                            color: isBull ? '#1e90ff' : '#ff1493' // Biru untuk Bullish, Pink untuk Bearish
-                        });
-                    }
-                }
-
-                // Pengisian Data ke Seri Charts
-                if (candleSeries) candleSeries.setData(candles);
-                if (upperBandSeries) upperBandSeries.setData(upperBandPoints);
-                if (lowerBandSeries) lowerBandSeries.setData(lowerBandPoints);
-                if (fastEmaSeries) fastEmaSeries.setData(fastEmaPoints);
-                if (slowEmaSeries) slowEmaSeries.setData(slowEmaPoints);
-                if (vboxHistogramSeries) vboxHistogramSeries.setData(vboxHistogramPoints);
-
-                // Set penanda (markers) sinyal Gear
-                if (candleSeries) candleSeries.setMarkers(mainChartMarkers);
-
-                // ================= VERDICT DECISION ALGORITHM =================
-                let score = 50; 
-                if (isBullishRibbon) score += 15; else score -= 15;
-                if (strength.buy > 55) score += 15; if (strength.sell > 55) score -= 15;
-                if (latestVBoxVal < 20) score += 20; if (latestVBoxVal > 80) score -= 20;
-
-                // Cek sinyal gear aktif terakhir
-                const lastMarker = mainChartMarkers[mainChartMarkers.length - 1];
-                if (lastMarker) {
-                    if (lastMarker.shape === 'arrowUp') score += 20;
-                    else if (lastMarker.shape === 'arrowDown') score -= 20;
-                }
-
-                score = Math.max(5, Math.min(95, score));
-
-                const verdictText = document.getElementById('signalVerdict');
-                const verdictBar = document.getElementById('verdictBar');
-                const glowBg = document.getElementById('glowBg');
-                const signalMainCard = document.getElementById('signalMainCard');
-
-                verdictBar.style.width = `${score}%`;
-
-                if (score >= 70) {
-                    verdictText.innerText = "STRONG BUY";
-                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bullGreen";
-                    verdictBar.className = "h-full bg-bullGreen transition-all duration-500";
-                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-emerald-500 transition-all duration-500";
-                    signalMainCard.className = "bg-cardBg rounded-2xl border border-emerald-900/40 p-5 shadow-xl relative overflow-hidden";
-                } else if (score > 55 && score < 70) {
-                    verdictText.innerText = "BUY";
-                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-emerald-400";
-                    verdictBar.className = "h-full bg-emerald-400 transition-all duration-500";
-                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-emerald-400 transition-all duration-500";
-                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
-                } else if (score < 30) {
-                    verdictText.innerText = "STRONG SELL";
-                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-bearRed";
-                    verdictBar.className = "h-full bg-bearRed transition-all duration-500";
-                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-35 bg-rose-500 transition-all duration-500";
-                    signalMainCard.className = "bg-cardBg rounded-2xl border border-rose-900/40 p-5 shadow-xl relative overflow-hidden";
-                } else if (score >= 30 && score < 45) {
-                    verdictText.innerText = "SELL";
-                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-rose-400";
-                    verdictBar.className = "h-full bg-rose-400 transition-all duration-500";
-                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-20 bg-rose-400 transition-all duration-500";
-                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
-                } else {
-                    verdictText.innerText = "NEUTRAL";
-                    verdictText.className = "text-2xl font-black mt-1 tracking-wider text-slate-400";
-                    verdictBar.className = "h-full bg-slate-600 transition-all duration-500";
-                    glowBg.className = "absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-0 transition-all duration-500";
-                    signalMainCard.className = "bg-cardBg rounded-2xl border border-slate-800/80 p-5 shadow-xl relative overflow-hidden";
-                }
-            } catch (err) {
-                console.error("Terjadi crash pemrosesan grafik: ", err);
-                showError("Gagal menggambar grafik. Muat ulang halaman.");
-            }
-        }
-
-        // Penanganan penyesuaian ukuran otomatis saat orientasi layar berubah
-        window.addEventListener('resize', () => {
-            if (mainChart && vboxChart) {
-                const containerWidth = document.getElementById('mainChart').clientWidth;
-                mainChart.resize(containerWidth, 240);
-                vboxChart.resize(containerWidth, 120);
-            }
-        });
-
-        // Inisialisasi awal aplikasi
-        window.addEventListener('DOMContentLoaded', () => {
-            initCharts();
-            fetchData();
-            
-            // Auto refresh setiap 60 detik
-            setInterval(() => {
-                fetchData(false);
-            }, 60000);
-        });
-    </script>
+    // Responsif jika window browser diubah ukurannya
+    window.addEventListener('resize', drawAll);
+  </script>
 </body>
 </html>
